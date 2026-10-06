@@ -1,39 +1,57 @@
 <?php
 declare(strict_types=1);
 
-// User and role management — admin only (spec §3: admin manages users, roles, backups).
+// User and role management — institution admin only (spec §3: admin manages users, roles, backups).
+// Every query is limited to the admin's own institution.
 
 function require_admin(): array
 {
+    require_institution();
     return require_role('admin');
 }
 
-function active_admin_count(?int $excludeUser = null): int
+function active_admin_count(int $institutionId, ?int $excludeUser = null): int
 {
     $st = db()->prepare("SELECT COUNT(DISTINCT u.id) FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = 'admin'
-        WHERE u.active = 1 AND u.id <> ?");
-    $st->execute([$excludeUser ?? 0]);
+        WHERE u.institution_id = ? AND u.active = 1 AND u.id <> ?");
+    $st->execute([$institutionId, $excludeUser ?? 0]);
     return (int)$st->fetchColumn();
+}
+
+/** A user of the current institution, or 404. */
+function institution_user(int $id): array
+{
+    $st = db()->prepare('SELECT id, username, name, email, position_title, active FROM users WHERE id = ? AND institution_id = ?');
+    $st->execute([$id, current_institution_id()]);
+    $u = $st->fetch();
+    if (!$u) fail('ไม่พบผู้ใช้', 404);
+    return $u;
 }
 
 return [
     'GET index' => function () {
         require_admin();
+        $inst = current_institution_id();
         $pdo = db();
-        $users = $pdo->query('SELECT id, username, name, email, position_title, active, last_login_at, created_at FROM users ORDER BY active DESC, name')->fetchAll();
+        $st = $pdo->prepare('SELECT id, username, name, email, position_title, active, last_login_at, created_at FROM users WHERE institution_id = ? ORDER BY active DESC, name');
+        $st->execute([$inst]);
+        $users = $st->fetchAll();
         $roles = [];
-        foreach ($pdo->query('SELECT r.*, ou.name AS unit_name, fy.year_be FROM role_assignments r
-                LEFT JOIN org_units ou ON ou.id = r.org_unit_id LEFT JOIN fiscal_years fy ON fy.id = r.fiscal_year_id ORDER BY r.id') as $r) {
+        $st = $pdo->prepare('SELECT r.*, ou.name AS unit_name, fy.year_be FROM role_assignments r JOIN users u ON u.id = r.user_id
+                LEFT JOIN org_units ou ON ou.id = r.org_unit_id LEFT JOIN fiscal_years fy ON fy.id = r.fiscal_year_id WHERE u.institution_id = ? ORDER BY r.id');
+        $st->execute([$inst]);
+        foreach ($st as $r) {
             $roles[(int)$r['user_id']][] = ['role' => $r['role'], 'org_unit_id' => $r['org_unit_id'] ? (int)$r['org_unit_id'] : null,
                 'fiscal_year_id' => $r['fiscal_year_id'] ? (int)$r['fiscal_year_id'] : null, 'unit_name' => $r['unit_name'], 'year_be' => $r['year_be']];
         }
         foreach ($users as &$u) $u['roles'] = $roles[(int)$u['id']] ?? [];
         unset($u);
-        return ['users' => $users, 'role_labels' => ROLES, 'unit_scoped_roles' => UNIT_SCOPED_ROLES];
+        return ['users' => $users, 'role_labels' => array_intersect_key(ROLES, array_flip(INSTITUTION_ROLES)), 'unit_scoped_roles' => UNIT_SCOPED_ROLES];
     },
 
     'POST save' => function () {
         $me = require_admin();
+        $inst = current_institution_id();
         $b = body();
         $id = (int)($b['id'] ?? 0);
         $username = trim((string)($b['username'] ?? ''));
@@ -44,25 +62,26 @@ return [
         if ($name === '') fail('กรุณาระบุชื่อ-สกุล');
         if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('อีเมลไม่ถูกต้อง');
         $pdo = db();
+        // Usernames are unique across the whole system (login does not ask for the institution).
+        $st = $pdo->prepare('SELECT COUNT(*) FROM users WHERE (username = ? OR (email IS NOT NULL AND email = ?)) AND id <> ?');
+        $st->execute([$username, $email, $id]);
+        if ((int)$st->fetchColumn()) fail('ชื่อผู้ใช้หรืออีเมลนี้มีผู้ใช้แล้วในระบบ');
         if ($id) {
-            $st = $pdo->prepare('SELECT id, username, name, email, position_title, active FROM users WHERE id = ?');
-            $st->execute([$id]);
-            $before = $st->fetch();
-            if (!$before) fail('ไม่พบผู้ใช้', 404);
+            $before = institution_user($id);
             if (!$active && $id === (int)$me['id']) fail('ปิดการใช้งานบัญชีของตัวเองไม่ได้');
-            if (!$active && $before['active'] && active_admin_count($id) === 0) {
+            if (!$active && $before['active'] && active_admin_count($inst, $id) === 0) {
                 $st = $pdo->prepare("SELECT COUNT(*) FROM role_assignments WHERE user_id = ? AND role = 'admin'");
                 $st->execute([$id]);
-                if ((int)$st->fetchColumn()) fail('ต้องมีผู้ดูแลระบบที่ใช้งานได้อย่างน้อย 1 คน');
+                if ((int)$st->fetchColumn()) fail('ต้องมีผู้ดูแลระบบสถานศึกษาที่ใช้งานได้อย่างน้อย 1 คน');
             }
-            $pdo->prepare('UPDATE users SET username = ?, name = ?, email = ?, position_title = ?, active = ? WHERE id = ?')
-                ->execute([$username, $name, $email, trim((string)($b['position_title'] ?? '')) ?: null, $active, $id]);
+            $pdo->prepare('UPDATE users SET username = ?, name = ?, email = ?, position_title = ?, active = ? WHERE id = ? AND institution_id = ?')
+                ->execute([$username, $name, $email, trim((string)($b['position_title'] ?? '')) ?: null, $active, $id, $inst]);
             audit('user.update', 'user', $id, $before, ['username' => $username, 'name' => $name, 'email' => $email, 'active' => $active]);
         } else {
             $pass = (string)($b['password'] ?? '');
             if (mb_strlen($pass) < MIN_PASSWORD_LENGTH) fail('รหัสผ่านต้องมีอย่างน้อย ' . MIN_PASSWORD_LENGTH . ' ตัวอักษร');
-            $pdo->prepare('INSERT INTO users (username, name, email, password_hash, position_title, active, password_changed_at) VALUES (?, ?, ?, ?, ?, ?, NOW())')
-                ->execute([$username, $name, $email, password_hash($pass, PASSWORD_DEFAULT), trim((string)($b['position_title'] ?? '')) ?: null, $active]);
+            $pdo->prepare('INSERT INTO users (institution_id, username, name, email, password_hash, position_title, active, password_changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')
+                ->execute([$inst, $username, $name, $email, password_hash($pass, PASSWORD_DEFAULT), trim((string)($b['position_title'] ?? '')) ?: null, $active]);
             $id = (int)$pdo->lastInsertId();
             audit('user.create', 'user', $id, null, ['username' => $username, 'name' => $name]);
         }
@@ -71,22 +90,32 @@ return [
 
     'POST roles' => function () {
         $me = require_admin();
+        $inst = current_institution_id();
         $b = body();
         $userId = (int)($b['user_id'] ?? 0);
+        institution_user($userId);
         $roles = array_values((array)($b['roles'] ?? []));
+        $pdo = db();
+        $owned = function (string $table, int $id) use ($pdo, $inst): bool {
+            $st = $pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE id = ? AND institution_id = ?");
+            $st->execute([$id, $inst]);
+            return (bool)$st->fetchColumn();
+        };
         $clean = [];
         foreach ($roles as $r) {
             $role = (string)($r['role'] ?? '');
-            if (!isset(ROLES[$role])) fail('บทบาทไม่ถูกต้อง');
+            if (!in_array($role, INSTITUTION_ROLES, true)) fail('บทบาทไม่ถูกต้อง');
             $unit = !empty($r['org_unit_id']) ? (int)$r['org_unit_id'] : null;
             $fy = !empty($r['fiscal_year_id']) ? (int)$r['fiscal_year_id'] : null;
             if (in_array($role, UNIT_SCOPED_ROLES, true) && !$unit) fail('บทบาท "' . ROLES[$role] . '" ต้องระบุหน่วยงาน');
             if ($role === 'admin') { $unit = null; $fy = null; }
+            if ($unit && !$owned('org_units', $unit)) fail('ไม่พบหน่วยงานในสถานศึกษานี้');
+            if ($fy && !$owned('fiscal_years', $fy)) fail('ไม่พบปีงบประมาณในสถานศึกษานี้');
             $key = $role . '|' . $unit . '|' . $fy;
             $clean[$key] = [$role, $unit, $fy];
         }
         $hasAdmin = (bool)array_filter($clean, fn($r) => $r[0] === 'admin');
-        if (!$hasAdmin && active_admin_count($userId) === 0) fail('ต้องมีผู้ดูแลระบบที่ใช้งานได้อย่างน้อย 1 คน');
+        if (!$hasAdmin && active_admin_count($inst, $userId) === 0) fail('ต้องมีผู้ดูแลระบบสถานศึกษาที่ใช้งานได้อย่างน้อย 1 คน');
         if (!$hasAdmin && $userId === (int)$me['id']) fail('ถอดบทบาทผู้ดูแลระบบของตัวเองไม่ได้');
         return tx(function (PDO $pdo) use ($userId, $clean) {
             $st = $pdo->prepare('SELECT role, org_unit_id, fiscal_year_id FROM role_assignments WHERE user_id = ?');
@@ -104,11 +133,10 @@ return [
         require_admin();
         $b = body();
         $id = (int)($b['user_id'] ?? 0);
+        institution_user($id);
         $pass = (string)($b['password'] ?? '');
         if (mb_strlen($pass) < MIN_PASSWORD_LENGTH) fail('รหัสผ่านต้องมีอย่างน้อย ' . MIN_PASSWORD_LENGTH . ' ตัวอักษร');
-        $st = db()->prepare('UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?');
-        $st->execute([password_hash($pass, PASSWORD_DEFAULT), $id]);
-        if (!$st->rowCount()) fail('ไม่พบผู้ใช้', 404);
+        db()->prepare('UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?')->execute([password_hash($pass, PASSWORD_DEFAULT), $id]);
         audit('user.reset_password', 'user', $id);
         return ['ok' => true];
     },

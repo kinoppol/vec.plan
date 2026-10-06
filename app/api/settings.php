@@ -13,10 +13,18 @@ function settings_user(int $fyId): array
     return require_role('planner', $fyId);
 }
 
+/** Tables owned directly by an institution; their rows are looked up only inside the user's institution. */
+const INSTITUTION_TABLES = ['org_units', 'expense_categories'];
+
 function row_or_fail(string $table, int $id): array
 {
-    $st = db()->prepare("SELECT * FROM {$table} WHERE id = ?");
-    $st->execute([$id]);
+    if (in_array($table, INSTITUTION_TABLES, true)) {
+        $st = db()->prepare("SELECT * FROM {$table} WHERE id = ? AND institution_id = ?");
+        $st->execute([$id, require_institution()]);
+    } else {
+        $st = db()->prepare("SELECT * FROM {$table} WHERE id = ?");
+        $st->execute([$id]);
+    }
     $r = $st->fetch();
     if (!$r) fail('ไม่พบข้อมูล', 404);
     return $r;
@@ -97,17 +105,26 @@ return [
         $fyId = request_fy();
         require_role(['planner', 'admin'], $fyId);
         $pdo = db();
+        $inst = institution(require_institution());
+        $q = function (string $sql) use ($pdo, $inst): array {
+            $st = $pdo->prepare($sql);
+            $st->execute([$inst['id']]);
+            return $st->fetchAll();
+        };
         $fys = array_map(function ($f) {
             $f['settings'] = $f['settings'] ? json_decode($f['settings'], true) : [];
             return $f;
-        }, $pdo->query('SELECT * FROM fiscal_years ORDER BY year_be DESC')->fetchAll());
+        }, $q('SELECT * FROM fiscal_years WHERE institution_id = ? ORDER BY year_be DESC'));
         $st = $pdo->prepare('SELECT f.*, (SELECT COUNT(*) FROM ledger_accounts la WHERE la.fund_source_id = f.id) AS account_count,
             (SELECT COUNT(*) FROM budget_lines bl WHERE bl.fund_source_id = f.id) AS line_count
             FROM fund_sources f WHERE f.fiscal_year_id = ? ORDER BY f.sort, f.id');
         $st->execute([$fyId]);
         $funds = $st->fetchAll();
         $allowed = [];
-        foreach ($pdo->query('SELECT fund_source_id, expense_category_id FROM fund_source_allowed_categories') as $a) $allowed[(int)$a['fund_source_id']][] = (int)$a['expense_category_id'];
+        $st = $pdo->prepare('SELECT a.fund_source_id, a.expense_category_id FROM fund_source_allowed_categories a
+            JOIN fund_sources f ON f.id = a.fund_source_id WHERE f.fiscal_year_id = ?');
+        $st->execute([$fyId]);
+        foreach ($st as $a) $allowed[(int)$a['fund_source_id']][] = (int)$a['expense_category_id'];
         foreach ($funds as &$f) $f['allowed_category_ids'] = $allowed[(int)$f['id']] ?? [];
         unset($f);
         $st = $pdo->prepare('SELECT * FROM alignment_sets WHERE fiscal_year_id = ? ORDER BY sort, id');
@@ -127,11 +144,11 @@ return [
         }
         unset($c);
         return [
-            'general' => ['org_name' => setting('org_name', ''), 'current_fiscal_year_id' => current_fiscal_year_id()],
+            'general' => ['org_name' => $inst['name'], 'institution_code' => $inst['code'], 'current_fiscal_year_id' => current_fiscal_year_id()],
             'fiscal_years' => $fys,
-            'units' => $pdo->query('SELECT u.*, (SELECT COUNT(*) FROM projects p WHERE p.org_unit_id = u.id) AS project_count FROM org_units u ORDER BY sort, id')->fetchAll(),
+            'units' => $q('SELECT u.*, (SELECT COUNT(*) FROM projects p WHERE p.org_unit_id = u.id) AS project_count FROM org_units u WHERE u.institution_id = ? ORDER BY sort, id'),
             'funds' => $funds,
-            'categories' => $pdo->query('SELECT c.*, (SELECT COUNT(*) FROM budget_lines bl WHERE bl.expense_category_id = c.id) AS line_count FROM expense_categories c ORDER BY sort, id')->fetchAll(),
+            'categories' => $q('SELECT c.*, (SELECT COUNT(*) FROM budget_lines bl WHERE bl.expense_category_id = c.id) AS line_count FROM expense_categories c WHERE c.institution_id = ? ORDER BY sort, id'),
             'alignment_sets' => $sets,
             'alignment_items' => $items,
             'chains' => $chains,
@@ -143,8 +160,9 @@ return [
         $fyId = request_fy();
         require_role(['planner', 'admin'], $fyId);
         $b = body();
-        $before = ['org_name' => setting('org_name'), 'current_fiscal_year_id' => setting('current_fiscal_year_id')];
-        if (isset($b['org_name'])) set_setting('org_name', str_in($b, 'org_name', 200));
+        $inst = institution(require_institution());
+        $before = ['org_name' => $inst['name'], 'current_fiscal_year_id' => setting('current_fiscal_year_id')];
+        if (isset($b['org_name'])) db()->prepare('UPDATE institutions SET name = ? WHERE id = ?')->execute([str_in($b, 'org_name', 200), $inst['id']]);
         if (!empty($b['current_fiscal_year_id'])) {
             fiscal_year((int)$b['current_fiscal_year_id']);
             set_setting('current_fiscal_year_id', (string)(int)$b['current_fiscal_year_id']);
@@ -184,8 +202,11 @@ return [
         $year = (int)($b['year_be'] ?? 0);
         if ($year < 2500 || $year > 2700) fail('ปีงบประมาณ (พ.ศ.) ไม่ถูกต้อง');
         return tx(function (PDO $pdo) use ($year, $status, $b, $settings) {
-            $pdo->prepare('INSERT INTO fiscal_years (year_be, starts_on, ends_on, status, proposal_open_from, proposal_open_to, settings) VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$year, sprintf('%04d-10-01', $year - 544), sprintf('%04d-09-30', $year - 543), $status,
+            $st = $pdo->prepare('SELECT COUNT(*) FROM fiscal_years WHERE institution_id = ? AND year_be = ?');
+            $st->execute([current_institution_id(), $year]);
+            if ((int)$st->fetchColumn()) fail('มีปีงบประมาณ ' . $year . ' อยู่แล้ว');
+            $pdo->prepare('INSERT INTO fiscal_years (institution_id, year_be, starts_on, ends_on, status, proposal_open_from, proposal_open_to, settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([current_institution_id(), $year, sprintf('%04d-10-01', $year - 544), sprintf('%04d-09-30', $year - 543), $status,
                     $b['proposal_open_from'] ?: null, $b['proposal_open_to'] ?: null, $settings]);
             $id = (int)$pdo->lastInsertId();
             if (!empty($b['copy_from'])) {
@@ -216,7 +237,8 @@ return [
                 ->execute(array_merge($vals, [$id]));
             audit('org_unit.update', 'org_unit', $id, $before, $b);
         } else {
-            db()->prepare('INSERT INTO org_units (parent_id, name, kind, code, student_count_vc, student_count_hvc, sort, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')->execute($vals);
+            db()->prepare('INSERT INTO org_units (institution_id, parent_id, name, kind, code, student_count_vc, student_count_hvc, sort, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute(array_merge([current_institution_id()], $vals));
             $id = (int)db()->lastInsertId();
             audit('org_unit.create', 'org_unit', $id, null, $b);
         }
@@ -275,6 +297,7 @@ return [
         $fund = row_or_fail('fund_sources', (int)($b['fund_source_id'] ?? 0));
         if ((int)$fund['fiscal_year_id'] !== $fyId) fail('ไม่พบแหล่งเงินในปีนี้');
         $ids = array_values(array_unique(array_map('intval', (array)($b['category_ids'] ?? []))));
+        foreach ($ids as $cid) row_or_fail('expense_categories', $cid);
         return tx(function (PDO $pdo) use ($fund, $ids) {
             $pdo->prepare('DELETE FROM fund_source_allowed_categories WHERE fund_source_id = ?')->execute([$fund['id']]);
             $ins = $pdo->prepare('INSERT INTO fund_source_allowed_categories (fund_source_id, expense_category_id) VALUES (?, ?)');
@@ -307,7 +330,8 @@ return [
             db()->prepare('UPDATE expense_categories SET parent_id = ?, code = ?, name = ?, sort = ?, active = ? WHERE id = ?')->execute(array_merge($vals, [$id]));
             audit('category.update', 'expense_category', $id, $before, $b);
         } else {
-            db()->prepare('INSERT INTO expense_categories (parent_id, code, name, sort, active) VALUES (?, ?, ?, ?, ?)')->execute($vals);
+            db()->prepare('INSERT INTO expense_categories (institution_id, parent_id, code, name, sort, active) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute(array_merge([current_institution_id()], $vals));
             $id = (int)db()->lastInsertId();
             audit('category.create', 'expense_category', $id, null, $b);
         }
@@ -348,6 +372,7 @@ return [
         $vals = [$set['id'], $parent, str_in($b, 'code', 40, false), str_in($b, 'label', 500), (int)($b['sort'] ?? 0), !empty($b['active']) ? 1 : 0];
         if ($id) {
             $before = row_or_fail('alignment_items', $id);
+            if ((int)row_or_fail('alignment_sets', (int)$before['alignment_set_id'])['fiscal_year_id'] !== $fyId) fail('ไม่พบรายการในปีนี้');
             db()->prepare('UPDATE alignment_items SET alignment_set_id = ?, parent_id = ?, code = ?, label = ?, sort = ?, active = ? WHERE id = ?')->execute(array_merge($vals, [$id]));
             audit('alignment_item.update', 'alignment_item', $id, $before, $b);
         } else {
@@ -367,7 +392,7 @@ return [
         $steps = array_values((array)($b['steps'] ?? []));
         if (!$steps) fail('สายอนุมัติต้องมีอย่างน้อย 1 ขั้น');
         foreach ($steps as $s) {
-            if (!isset(ROLES[$s['role'] ?? '']) || ($s['role'] ?? '') === 'admin') fail('บทบาทในสายอนุมัติไม่ถูกต้อง');
+            if (!in_array($s['role'] ?? '', INSTITUTION_ROLES, true) || ($s['role'] ?? '') === 'admin') fail('บทบาทในสายอนุมัติไม่ถูกต้อง');
             if (!in_array($s['scope'] ?? '', SCOPES, true)) fail('ขอบเขตในสายอนุมัติไม่ถูกต้อง');
         }
         return tx(function (PDO $pdo) use ($chain, $steps) {

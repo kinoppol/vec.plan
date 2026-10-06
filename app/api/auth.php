@@ -17,7 +17,8 @@ return [
         $rl = $st->fetch();
         if ((int)$rl['by_user'] >= 5 || (int)$rl['by_ip'] >= 20) fail('พยายามเข้าสู่ระบบผิดหลายครั้ง กรุณารอ 15 นาที', 429);
 
-        $st = $pdo->prepare('SELECT id, password_hash, active FROM users WHERE username = ? OR email = ? LIMIT 1');
+        $st = $pdo->prepare('SELECT u.id, u.institution_id, u.password_hash, u.active, i.active AS institution_active
+            FROM users u LEFT JOIN institutions i ON i.id = u.institution_id WHERE u.username = ? OR u.email = ? LIMIT 1');
         $st->execute([$username, $username]);
         $u = $st->fetch();
         $ok = $u && $u['active'] && password_verify($password, $u['password_hash']);
@@ -26,6 +27,7 @@ return [
             usleep(400000);
             fail('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 401);
         }
+        if ($u['institution_id'] && !$u['institution_active']) fail('สถานศึกษาของบัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบกลาง', 403);
         if (password_needs_rehash($u['password_hash'], PASSWORD_DEFAULT)) {
             $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($password, PASSWORD_DEFAULT), $u['id']]);
         }

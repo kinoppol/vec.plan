@@ -83,11 +83,11 @@ test('rollback of the last batch and re-apply both succeed (every @down is valid
     ok(!array_filter($r, fn($x) => !$x['ok']), 're-apply failed');
 });
 
-$fyId = tx(fn() => Seeder::base($pdo, 'วิทยาลัยทดสอบ'));
-unset($GLOBALS['__settings']);
+$pdo->exec("UPDATE institutions SET name = 'วิทยาลัยทดสอบ' WHERE id = 1");
+$fyId = tx(fn() => Seeder::base($pdo, 1));
 $fy = fiscal_year($fyId);
 $mkUser = function (string $username, array $roles) use ($pdo, $fyId): int {
-    $pdo->prepare('INSERT INTO users (username, name, password_hash) VALUES (?, ?, ?)')->execute([$username, $username, password_hash('x', PASSWORD_DEFAULT)]);
+    $pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash) VALUES (1, ?, ?, ?)')->execute([$username, $username, password_hash('x', PASSWORD_DEFAULT)]);
     $id = (int)$pdo->lastInsertId();
     foreach ($roles as $r) $pdo->prepare('INSERT INTO role_assignments (user_id, role, fiscal_year_id) VALUES (?, ?, ?)')->execute([$id, $r, $fyId]);
     return $id;
@@ -336,7 +336,7 @@ test('SQL splitter keeps semicolons inside strings and drops comments', function
     eq("INSERT INTO t VALUES ('a;b')", $parts[0]);
 });
 test('Access: unit-scoped roles see only their unit subtree', function () use ($pdo, $fyId, $unitId, $mkProject) {
-    $pdo->prepare('INSERT INTO users (username, name, password_hash) VALUES (?, ?, ?)')->execute(['t_head', 'หัวหน้า', 'x']);
+    $pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash) VALUES (1, ?, ?, ?)')->execute(['t_head', 'หัวหน้า', 'x']);
     $uid = (int)$pdo->lastInsertId();
     $pdo->prepare("INSERT INTO role_assignments (user_id, role, org_unit_id, fiscal_year_id) VALUES (?, 'unit_head', ?, ?)")->execute([$uid, $unitId, $fyId]);
     as_user($uid);
@@ -349,6 +349,74 @@ test('Access: unit-scoped roles see only their unit subtree', function () use ($
     $st->execute(array_merge([$fyId], $params, [$unitId]));
     eq(0, (int)$st->fetchColumn(), 'no projects of other units');
 });
+
+// ------------------------------------------------------------------ multi-institution
+echo "Multi-institution\n";
+// Second institution with its own master data, admin and finance user.
+$pdo->exec("INSERT INTO institutions (code, name) VALUES ('B', 'วิทยาลัยบี')");
+$instB = (int)$pdo->lastInsertId();
+$fyB = tx(fn() => Seeder::base($pdo, $instB));
+$pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash) VALUES (?, ?, ?, ?)')->execute([$instB, 'b_finance', 'การเงินบี', 'x']);
+$financeB = (int)$pdo->lastInsertId();
+$pdo->prepare("INSERT INTO role_assignments (user_id, role) VALUES (?, 'finance')")->execute([$financeB]);
+$pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash) VALUES (?, ?, ?, ?)')->execute([$instB, 'b_admin', 'แอดมินบี', 'x']);
+$adminB = (int)$pdo->lastInsertId();
+$pdo->prepare("INSERT INTO role_assignments (user_id, role) VALUES (?, 'admin')")->execute([$adminB]);
+
+test('each institution gets its own fiscal year, units and categories with the same codes', function () use ($pdo, $fyId, $fyB, $instB) {
+    ok($fyId !== $fyB);
+    $st = $pdo->prepare("SELECT COUNT(*) FROM org_units WHERE institution_id = ? AND code = 'DEP-AUTO'");
+    $st->execute([$instB]);
+    eq(1, (int)$st->fetchColumn());
+    eq(2, (int)$pdo->query("SELECT COUNT(*) FROM expense_categories WHERE code = 'OPS-MAT'")->fetchColumn());
+});
+test('a user cannot open a fiscal year of another institution', function () use ($financeB, $fyId, $fyB) {
+    as_user($financeB);
+    eq($fyB, current_fiscal_year_id());
+    throws(fn() => fiscal_year($fyId), 'ไม่พบปีงบประมาณ');
+    $_GET['fy'] = (string)$fyId;
+    throws(fn() => request_fy(), 'ไม่พบปีงบประมาณ');
+    unset($_GET['fy']);
+});
+test('a user cannot post to another institution\'s fiscal year', function () use ($financeB, $fyId, $fund) {
+    as_user($financeB);
+    throws(fn() => Ledger::post(['fiscal_year_id' => $fyId, 'entry_type' => 'carry_in', 'fund_source_id' => $fund('SUB-TEACH'), 'amount' => 100], $financeB), 'ไม่พบปีงบประมาณ');
+});
+test('ledger numbers and settings are per institution', function () use ($financeB, $fyB, $pdo) {
+    as_user($financeB);
+    $st = $pdo->prepare("SELECT id FROM fund_sources WHERE fiscal_year_id = ? AND code = 'DON'");
+    $st->execute([$fyB]);
+    $e = Ledger::post(['fiscal_year_id' => $fyB, 'entry_type' => 'carry_in', 'fund_source_id' => (int)$st->fetchColumn(), 'amount' => 100,
+        'entry_date' => fiscal_year($fyB)['starts_on']], $financeB);
+    eq('LG70-00001', $e['entry_no'], 'institution B starts its own sequence');
+    eq((string)$fyB, setting('current_fiscal_year_id'));
+});
+test('Access subtree and audit stay inside the institution', function () use ($financeB, $pdo, $instB) {
+    as_user($financeB);
+    // A division of institution 1 has children there, but none are visible from institution B.
+    $acd1 = (int)$pdo->query("SELECT id FROM org_units WHERE institution_id = 1 AND code = 'ACD'")->fetchColumn();
+    eq([$acd1], Access::subtree([$acd1]));
+    $st = $pdo->prepare("SELECT id FROM org_units WHERE institution_id = ? AND code = 'ACD'");
+    $st->execute([$instB]);
+    ok(count(Access::subtree([(int)$st->fetchColumn()])) > 1, 'own division subtree has children');
+    audit('test.event');
+    eq($instB, (int)$pdo->query('SELECT institution_id FROM audit_logs ORDER BY id DESC LIMIT 1')->fetchColumn());
+});
+test('a central admin has no institution and no fiscal year', function () use ($pdo) {
+    $pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash) VALUES (NULL, ?, ?, ?)')->execute(['central', 'กลาง', 'x']);
+    $id = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO role_assignments (user_id, role) VALUES (?, 'super_admin')")->execute([$id]);
+    as_user($id);
+    ok(is_super_admin());
+    eq(null, current_institution_id());
+    eq(null, current_fiscal_year_id());
+    throws(fn() => request_fy(), 'ไม่ได้สังกัดสถานศึกษา');
+    set_setting('tenancy_mode', 'multi', 0);
+    ok(is_multi() && is_system_admin());
+    set_setting('tenancy_mode', 'single', 0);
+    ok(!is_system_admin(), 'in single mode the system admin is the institution admin');
+});
+
 test('Backup dump contains tables, data and the ledger triggers', function () use ($pdo) {
     $r = Backup::create($pdo, 'test');
     $sql = gzdecode(file_get_contents(BACKUP_DIR . '/' . $r['file']));

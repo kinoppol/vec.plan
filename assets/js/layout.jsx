@@ -100,16 +100,20 @@ const NAV = [
   { group: 'อื่น ๆ' },
   { id: 'reports', label: 'รายงาน', icon: 'bar', phase: 2, perm: 'view_funds' },
   { id: 'settings', label: 'ตั้งค่า', icon: 'gear', permAny: ['settings', 'admin'] },
-  { group: 'ผู้ดูแลระบบ', perm: 'admin' },
+  { group: 'ผู้ดูแลระบบ', permAny: ['admin', 'system', 'super_admin'] },
+  { id: 'institutions', label: 'สถานศึกษา', icon: 'home', perm: 'institutions' },
   { id: 'users', label: 'ผู้ใช้และบทบาท', icon: 'users', perm: 'admin' },
-  { id: 'migrations', label: 'Migrations ฐานข้อมูล', icon: 'db', perm: 'admin' },
-  { id: 'backups', label: 'สำรองข้อมูล', icon: 'archive', perm: 'admin' },
-  { id: 'audit', label: 'บันทึกการใช้งาน', icon: 'history', perm: 'admin' },
+  { id: 'migrations', label: 'Migrations ฐานข้อมูล', icon: 'db', perm: 'system' },
+  { id: 'backups', label: 'สำรองข้อมูล', icon: 'archive', perm: 'system' },
+  { id: 'audit', label: 'บันทึกการใช้งาน', icon: 'history', perm: 'audit' },
 ];
+// The central admin (multi-institution mode) has no institution data: only the admin pages.
+const CENTRAL_PAGES = ['institutions', 'migrations', 'backups', 'audit'];
 const PHASE_NAME = { 2: 'ระยะที่ 2', 3: 'ระยะที่ 3', 4: 'ระยะที่ 4' };
 
 function visibleNav(perms, isPlannerLike) {
   const allowed = n => {
+    if (perms.super_admin && !n.group && !CENTRAL_PAGES.includes(n.id)) return false;
     if (n.perm && !perms[n.perm]) return false;
     if (n.permAny && !n.permAny.some(k => perms[k])) return false;
     if (n.planner && !isPlannerLike) return false;
@@ -127,9 +131,9 @@ function Sidebar({ page, collapsed, onNavigate }) {
   const isPlannerLike = perms.import || perms.settings;
   const items = visibleNav(perms, isPlannerLike);
   const fy = meta.fiscal_year;
-  const start = new Date(fy.starts_on), end = new Date(fy.ends_on), now = new Date(meta.today);
-  const total = Math.round((end - start) / 864e5) + 1;
-  const day = Math.max(0, Math.min(total, Math.round((now - start) / 864e5) + 1));
+  const start = fy && new Date(fy.starts_on), end = fy && new Date(fy.ends_on), now = new Date(meta.today);
+  const total = fy ? Math.round((end - start) / 864e5) + 1 : 0;
+  const day = fy ? Math.max(0, Math.min(total, Math.round((now - start) / 864e5) + 1)) : 0;
   return (
     <aside className="side" aria-label="เมนูหลัก">
       <div className="side-brand">
@@ -150,14 +154,19 @@ function Sidebar({ page, collapsed, onNavigate }) {
           </button>
         ))}
       </nav>
-      <div className="fy-box">
-        <div className="row" style={{ justifyContent: 'space-between', fontSize: 12 }}>
-          <span style={{ fontWeight: 600 }}>ปีงบประมาณ {fy.year_be}</span>
-          <span style={{ color: 'rgba(255,255,255,.65)' }}>วันที่ {day}/{total}</span>
+      {fy ? (
+        <div className="fy-box">
+          <div className="row" style={{ justifyContent: 'space-between', fontSize: 12 }}>
+            <span style={{ fontWeight: 600 }}>ปีงบประมาณ {fy.year_be}</span>
+            <span style={{ color: 'rgba(255,255,255,.65)' }}>วันที่ {day}/{total}</span>
+          </div>
+          <div className="bar"><div style={{ width: pct(day, total) + '%' }} /></div>
+          <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.6)' }}>{thDate(fy.starts_on)} – {thDate(fy.ends_on)}</div>
         </div>
-        <div className="bar"><div style={{ width: pct(day, total) + '%' }} /></div>
-        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.6)' }}>{thDate(fy.starts_on)} – {thDate(fy.ends_on)}</div>
-      </div>
+      ) : (
+        <div className="fy-box"><div style={{ fontSize: 12, fontWeight: 600 }}>ผู้ดูแลระบบกลาง</div>
+          <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.6)' }}>ใช้งานแบบหลายสถานศึกษา</div></div>
+      )}
     </aside>
   );
 }
@@ -178,10 +187,12 @@ function Topbar({ onToggle, onLogout }) {
   return (
     <header className="topbar">
       <button className="icon-btn" onClick={onToggle} title="ยุบ/ขยายเมนู" aria-label="ยุบ/ขยายเมนู"><Icon name="menu" /></button>
-      <select className="select" value={meta.fy} onChange={e => setFy(+e.target.value)} aria-label="ปีงบประมาณ"
-        style={{ fontWeight: 600, color: 'var(--heading)', flexShrink: 0 }}>
-        {meta.fiscal_years.map(f => <option key={f.id} value={f.id}>ปีงบประมาณ {f.year_be}</option>)}
-      </select>
+      {meta.fy ? (
+        <select className="select" value={meta.fy} onChange={e => setFy(+e.target.value)} aria-label="ปีงบประมาณ"
+          style={{ fontWeight: 600, color: 'var(--heading)', flexShrink: 0 }}>
+          {meta.fiscal_years.map(f => <option key={f.id} value={f.id}>ปีงบประมาณ {f.year_be}</option>)}
+        </select>
+      ) : <span style={{ fontWeight: 600, color: 'var(--heading)' }}>{meta.org_name}</span>}
       <div style={{ flex: 1 }} />
       <span className="sm muted hide-mobile row" style={{ gap: 6 }} title="เวลาของเซิร์ฟเวอร์">
         <span className="dot" style={{ background: 'var(--green)', width: 7, height: 7 }} />ข้อมูล ณ {thDate(meta.today)}
@@ -222,7 +233,7 @@ function ChangePassword({ onClose }) {
   const [busy, run] = useBusy();
   const save = () => run(async () => {
     setErr('');
-    if (f.new.length < 10) return setErr('รหัสผ่านใหม่ต้องมีอย่างน้อย 10 ตัวอักษร');
+    if (f.new.length < 8) return setErr('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร');
     if (f.new !== f.confirm) return setErr('ยืนยันรหัสผ่านไม่ตรงกัน');
     try { await post('auth/password', { current: f.current, new: f.new }); toast('เปลี่ยนรหัสผ่านแล้ว', 'ok'); onClose(); }
     catch (e) { setErr(e.message); }
@@ -233,7 +244,7 @@ function ChangePassword({ onClose }) {
       <button className="btn primary" onClick={save} disabled={busy}>บันทึก</button>
     </Fragment>}>
       <Field label="รหัสผ่านปัจจุบัน"><input className="input" type="password" value={f.current} onChange={e => setF({ ...f, current: e.target.value })} autoComplete="current-password" /></Field>
-      <Field label="รหัสผ่านใหม่" hint="อย่างน้อย 10 ตัวอักษร"><input className="input" type="password" value={f.new} onChange={e => setF({ ...f, new: e.target.value })} autoComplete="new-password" /></Field>
+      <Field label="รหัสผ่านใหม่" hint="อย่างน้อย 8 ตัวอักษร"><input className="input" type="password" value={f.new} onChange={e => setF({ ...f, new: e.target.value })} autoComplete="new-password" /></Field>
       <Field label="ยืนยันรหัสผ่านใหม่"><input className="input" type="password" value={f.confirm} onChange={e => setF({ ...f, confirm: e.target.value })} autoComplete="new-password" /></Field>
       {err && <Alert tone="red">{err}</Alert>}
     </Modal>
@@ -244,4 +255,4 @@ function Forbidden() {
   return <Empty icon="lock" title="ไม่มีสิทธิ์เข้าถึงหน้านี้">บทบาทของคุณในปีงบประมาณนี้ไม่ครอบคลุมหน้านี้ ติดต่อผู้ดูแลระบบหากต้องการสิทธิ์เพิ่ม</Empty>;
 }
 
-Object.assign(window, { parseHash, useRoute, navigate, useToasts, Login, NAV, Sidebar, Topbar, Forbidden, ChangePassword });
+Object.assign(window, { parseHash, useRoute, navigate, useToasts, Login, NAV, CENTRAL_PAGES, Sidebar, Topbar, Forbidden, ChangePassword });

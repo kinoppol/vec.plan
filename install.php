@@ -172,6 +172,18 @@ function write_config(array $db, string $orgName): void
     if (function_exists('opcache_invalidate')) @opcache_invalidate(CONFIG_FILE, true);
 }
 
+/** Tenancy mode of the database being (re)installed; 'single' when it predates multi-institution support. */
+function installed_mode(?PDO $pdo = null): string
+{
+    try {
+        $pdo = $pdo ?? db();
+        $v = $pdo->query("SELECT svalue FROM settings WHERE institution_id = 0 AND skey = 'tenancy_mode'")->fetchColumn();
+        return $v === 'multi' ? 'multi' : 'single';
+    } catch (Throwable $e) {
+        return 'single';
+    }
+}
+
 // ====================================================================== unlock gate
 
 // A session that started on a not-yet-installed system stays unlocked until it reaches "done".
@@ -180,7 +192,7 @@ $unlocked = !empty($S['unlocked']);
 if (!$unlocked) {
     // An admin who is already logged in to the app may re-run the installer.
     try {
-        if (!empty($_SESSION['uid']) && has_role('admin')) $unlocked = $S['unlocked'] = true;
+        if (!empty($_SESSION['uid']) && is_system_admin()) $unlocked = $S['unlocked'] = true;
     } catch (Throwable $e) { }
 }
 if (!$unlocked) {
@@ -194,9 +206,10 @@ if (!$unlocked) {
             $ok = ($cfg['db']['pass'] ?? '') !== '' && hash_equals((string)$cfg['db']['pass'], (string)($_POST['dbpass'] ?? ''));
         } else {
             try {
-                $st = db()->prepare("SELECT u.id, u.password_hash FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = 'admin'
+                // Only the system admin may re-run the installer: the central admin in multi mode.
+                $st = db()->prepare("SELECT u.id, u.password_hash FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = ?
                     WHERE u.username = ? AND u.active = 1 LIMIT 1");
-                $st->execute([trim((string)($_POST['username'] ?? ''))]);
+                $st->execute([installed_mode() === 'multi' ? 'super_admin' : 'admin', trim((string)($_POST['username'] ?? ''))]);
                 $u = $st->fetch();
                 $ok = $u && password_verify((string)($_POST['password'] ?? ''), $u['password_hash']);
             } catch (Throwable $e) {
@@ -251,7 +264,12 @@ if ($step === 'options') {
         $info = $S['dbinfo'];
         $mode = ($_POST['mode'] ?? 'fresh') === 'upgrade' && $info['has_app'] ? 'upgrade' : 'fresh';
         $orgName = trim((string)($_POST['org_name'] ?? '')) ?: 'วิทยาลัยการอาชีพตัวอย่าง';
+        $systemName = trim((string)($_POST['system_name'] ?? '')) ?: 'ระบบแผนงานและงบประมาณสถานศึกษา';
         $demo = $mode === 'fresh' && !empty($_POST['demo']);
+        // Single or multi institution. An upgrade keeps multi mode (going back would orphan the other institutions).
+        $prevMode = $info['has_app'] ? installed_mode(make_pdo($c)) : 'single';
+        $tenancy = ($_POST['tenancy'] ?? 'single') === 'multi' ? 'multi' : 'single';
+        if ($mode === 'upgrade' && $prevMode === 'multi') $tenancy = 'multi';
         if ($mode === 'fresh' && $info['tables'] && trim((string)($_POST['confirm_db'] ?? '')) !== $c['name']) {
             $errors[] = 'พิมพ์ชื่อฐานข้อมูล "' . $c['name'] . '" เพื่อยืนยันการลบตารางเดิมทั้งหมด';
         }
@@ -278,18 +296,29 @@ if ($step === 'options') {
                     $log[] = 'รัน migration ' . $r['name'];
                 }
                 if (!$results) $log[] = 'โครงสร้างฐานข้อมูลเป็นปัจจุบันแล้ว';
-                $hasFy = (int)$pdo->query('SELECT COUNT(*) FROM fiscal_years')->fetchColumn() > 0;
-                if (!$hasFy) {
-                    $fyId = tx(fn() => Seeder::base($pdo, $orgName));
-                    unset($GLOBALS['__settings']);
-                    $log[] = 'สร้างข้อมูลตั้งต้น: ปีงบประมาณ 2570 หน่วยงาน แหล่งเงิน หมวดรายจ่าย ความสอดคล้อง สายอนุมัติ';
+
+                // The migration always creates institution 1: the only one in single mode, the first one in multi mode.
+                $firstInst = (int)$pdo->query('SELECT MIN(id) FROM institutions')->fetchColumn();
+                use_institution($firstInst);
+                set_setting('tenancy_mode', $tenancy, 0);
+                if ($tenancy === 'multi') set_setting('system_name', mb_substr($systemName, 0, 200), 0);
+                if (!($mode === 'upgrade' && $prevMode === 'multi')) {
+                    $pdo->prepare('UPDATE institutions SET name = ? WHERE id = ?')->execute([mb_substr($orgName, 0, 200), $firstInst]);
+                }
+                $log[] = $tenancy === 'multi' ? 'ใช้งานแบบหลายสถานศึกษา (' . $systemName . ')' : 'ใช้งานแบบสถานศึกษาเดียว';
+                $st = $pdo->prepare('SELECT COUNT(*) FROM fiscal_years WHERE institution_id = ?');
+                $st->execute([$firstInst]);
+                if (!(int)$st->fetchColumn()) {
+                    $fyId = tx(fn() => Seeder::base($pdo, $firstInst));
+                    $log[] = 'สร้างข้อมูลตั้งต้นของ' . $orgName . ': ปีงบประมาณ 2570 หน่วยงาน แหล่งเงิน หมวดรายจ่าย ความสอดคล้อง สายอนุมัติ';
                     if ($demo) {
                         tx(fn() => Seeder::demo($pdo, $fyId, 0));
                         $log[] = 'สร้างข้อมูลตัวอย่าง: ผู้ใช้ตัวอย่าง โครงการ และรายการสมุดบัญชี';
                     }
-                } else {
-                    $pdo->prepare('INSERT INTO settings (skey, svalue) VALUES (\'org_name\', ?) ON DUPLICATE KEY UPDATE svalue = VALUES(svalue)')->execute([$orgName]);
                 }
+                use_institution(null);
+                $S['tenancy'] = $tenancy;
+                $S['first_institution'] = $firstInst;
                 $S['mode'] = $mode;
                 $S['demo'] = $demo;
                 $S['log'] = $log;
@@ -306,7 +335,13 @@ if ($step === 'admin') {
     if (empty($S['migrated'])) go('options');
     $pdo = make_pdo(db_conf());
     db($pdo);
-    $admins = $pdo->query("SELECT u.username, u.name FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = 'admin' ORDER BY u.id")->fetchAll();
+    // Single mode: the institution admin runs the system. Multi mode: a central admin without an institution.
+    $multi = ($S['tenancy'] ?? 'single') === 'multi';
+    $firstInst = (int)($S['first_institution'] ?? 1);
+    $adminRole = $multi ? 'super_admin' : 'admin';
+    $st = $pdo->prepare('SELECT u.username, u.name FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = ? ORDER BY u.id');
+    $st->execute([$adminRole]);
+    $admins = $st->fetchAll();
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
         $username = trim((string)$_POST['username']);
@@ -320,27 +355,38 @@ if ($step === 'admin') {
         if ($pass !== (string)$_POST['password2']) $errors[] = 'ยืนยันรหัสผ่านไม่ตรงกัน';
         if (!$errors) {
             try {
-                tx(function (PDO $pdo) use ($username, $name, $email, $pass) {
+                tx(function (PDO $pdo) use ($username, $name, $email, $pass, $multi, $firstInst, $adminRole) {
                     $hash = password_hash($pass, PASSWORD_DEFAULT);
-                    $st = $pdo->prepare('SELECT id FROM users WHERE username = ?');
+                    $instId = $multi ? null : $firstInst;
+                    $st = $pdo->prepare('SELECT id, institution_id FROM users WHERE username = ?');
                     $st->execute([$username]);
-                    $id = $st->fetchColumn();
+                    $row = $st->fetch();
+                    $id = $row ? (int)$row['id'] : 0;
+                    if ($row && $multi && $row['institution_id'] !== null) {
+                        throw new RuntimeException('ชื่อผู้ใช้ "' . $username . '" เป็นผู้ใช้ของสถานศึกษา — ใช้ชื่ออื่นสำหรับผู้ดูแลระบบกลาง');
+                    }
                     if ($id) {
-                        $pdo->prepare('UPDATE users SET name = ?, email = ?, password_hash = ?, active = 1, password_changed_at = NOW() WHERE id = ?')
-                            ->execute([$name, $email, $hash, $id]);
+                        $pdo->prepare('UPDATE users SET institution_id = ?, name = ?, email = ?, password_hash = ?, active = 1, password_changed_at = NOW() WHERE id = ?')
+                            ->execute([$instId, $name, $email, $hash, $id]);
+                        // A former central admin brought back into a single-mode institution.
+                        if (!$multi) $pdo->prepare("DELETE FROM role_assignments WHERE user_id = ? AND role = 'super_admin'")->execute([$id]);
                     } else {
-                        $pdo->prepare('INSERT INTO users (username, name, email, password_hash, position_title, password_changed_at) VALUES (?, ?, ?, ?, ?, NOW())')
-                            ->execute([$username, $name, $email, $hash, 'ผู้ดูแลระบบ']);
+                        $pdo->prepare('INSERT INTO users (institution_id, username, name, email, password_hash, position_title, password_changed_at) VALUES (?, ?, ?, ?, ?, ?, NOW())')
+                            ->execute([$instId, $username, $name, $email, $hash, ROLES[$adminRole]]);
                         $id = (int)$pdo->lastInsertId();
                     }
-                    $pdo->prepare("INSERT IGNORE INTO role_assignments (user_id, role, org_unit_id, fiscal_year_id) VALUES (?, 'admin', NULL, NULL)")->execute([$id]);
+                    // NULL unit/year never collide in the UNIQUE key, so replace instead of INSERT IGNORE.
+                    $pdo->prepare('DELETE FROM role_assignments WHERE user_id = ? AND role = ?')->execute([$id, $adminRole]);
+                    $pdo->prepare('INSERT INTO role_assignments (user_id, role, org_unit_id, fiscal_year_id) VALUES (?, ?, NULL, NULL)')->execute([$id, $adminRole]);
                     $_SESSION['uid'] = null;
-                    audit('install.admin', 'user', $id, null, ['username' => $username]);
+                    use_institution($instId);
+                    audit('install.admin', 'user', $id, null, ['username' => $username, 'role' => $adminRole]);
+                    use_institution(null);
                 });
                 if (@file_put_contents(LOCK_FILE, json_encode(['installed_at' => date('c'), 'version' => APP_VERSION, 'mode' => $S['mode'] ?? 'fresh']), LOCK_EX) === false) {
                     throw new RuntimeException('เขียนไฟล์ storage/installed.lock ไม่ได้');
                 }
-                $S['done'] = ['username' => $username, 'demo' => !empty($S['demo']), 'log' => $S['log'] ?? []];
+                $S['done'] = ['username' => $username, 'demo' => !empty($S['demo']), 'log' => $S['log'] ?? [], 'multi' => $multi];
                 go('done');
             } catch (Throwable $e) {
                 $errors[] = $e->getMessage();
@@ -497,8 +543,19 @@ ul.log{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#33415A}
     $org = app_config()['app']['org_name'] ?? 'วิทยาลัยการอาชีพตัวอย่าง';
     $migrator = null;
     $pending = [];
+    $prevMode = 'single';
+    $sysName = 'ระบบแผนงานและงบประมาณสถานศึกษา';
+    $instCount = 0;
     if ($info['has_app']) {
-        try { $migrator = new Migrator(make_pdo($c)); $pending = $migrator->pending(); } catch (Throwable $e) { }
+        try {
+            $ipdo = make_pdo($c);
+            $migrator = new Migrator($ipdo);
+            $pending = $migrator->pending();
+            $prevMode = installed_mode($ipdo);
+            $org = (string)($ipdo->query('SELECT name FROM institutions ORDER BY id LIMIT 1')->fetchColumn() ?: $org);
+            $instCount = (int)$ipdo->query('SELECT COUNT(*) FROM institutions')->fetchColumn();
+            $sysName = (string)($ipdo->query("SELECT svalue FROM settings WHERE institution_id = 0 AND skey = 'system_name'")->fetchColumn() ?: $sysName);
+        } catch (Throwable $e) { }
     }
 ?>
   <div class="alert good">เชื่อมต่อสำเร็จ · <?= h($info['version']) ?> · ฐานข้อมูล <b><?= h($c['name']) ?></b><?= !empty($info['created']) ? ' (สร้างใหม่)' : '' ?> · มีตาราง <?= count($info['tables']) ?> ตาราง</div>
@@ -506,7 +563,15 @@ ul.log{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#33415A}
     <?= csrf_field() ?>
     <h2>ตัวเลือกการติดตั้ง</h2>
     <p class="sub">โครงสร้างฐานข้อมูลสร้างด้วย migrations ทั้งหมด <?= count((new Migrator(make_pdo($c)))->files()) ?> ไฟล์</p>
-    <label>ชื่อสถานศึกษา<input type="text" name="org_name" value="<?= h($org) ?>" required></label>
+    <div id="tenancyBox">
+      <label class="mode"><input type="radio" name="tenancy" value="single" <?= $prevMode === 'single' ? 'checked' : '' ?> onchange="toggleMode()"><span><b>สถานศึกษาเดียว</b>
+        ใช้งานในสถานศึกษาเดียว ผู้ดูแลระบบของสถานศึกษาดูแลทั้งระบบ (จัดการผู้ใช้ migrations และสำรองข้อมูล) — เปิดใช้งานแบบหลายสถานศึกษาภายหลังได้จากเมนูผู้ดูแลระบบ</span></label>
+      <label class="mode"><input type="radio" name="tenancy" value="multi" <?= $prevMode === 'multi' ? 'checked' : '' ?> onchange="toggleMode()"><span><b>หลายสถานศึกษา</b>
+        สถานศึกษาหลายแห่งใช้ระบบเดียวกัน ข้อมูลของแต่ละแห่งแยกจากกัน แต่ละแห่งมีผู้ดูแลระบบสถานศึกษาของตัวเอง และมีผู้ดูแลระบบกลางสร้างสถานศึกษา/ผู้ดูแล รัน migrations และสำรองข้อมูล</span></label>
+    </div>
+    <div id="multiLocked" class="alert info" style="display:none">ระบบนี้ใช้งานแบบหลายสถานศึกษา (<?= $instCount ?> แห่ง) — การอัปเกรดคงโหมดหลายสถานศึกษาไว้</div>
+    <label id="sysNameBox">ชื่อระบบ (แสดงที่หน้าเข้าสู่ระบบ)<input type="text" name="system_name" value="<?= h($sysName) ?>"></label>
+    <label id="orgNameBox"><span id="orgNameLabel">ชื่อสถานศึกษา</span><input type="text" name="org_name" value="<?= h($org) ?>"></label>
     <?php if ($info['has_app']): ?>
       <label class="mode"><input type="radio" name="mode" value="upgrade" checked onchange="toggleMode()"><span><b>คงข้อมูลเดิม (อัปเกรด/ซ่อมแซม)</b>
         รันเฉพาะ migration ที่ยังค้าง (<?= count($pending) ?> รายการ) ข้อมูลเดิมทั้งหมดอยู่ครบ แล้วตั้งค่าบัญชีผู้ดูแลระบบ</span></label>
@@ -523,7 +588,17 @@ ul.log{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#33415A}
     <div class="actions"><a class="btn ghost" href="install.php?step=db">ย้อนกลับ</a><button class="btn">ติดตั้ง</button></div>
   </form>
   <script>
-  function toggleMode(){var f=document.querySelector('input[name=mode]:checked');document.getElementById('freshOpts').style.display=f&&f.value==='fresh'?'':'none'}
+  function toggleMode(){
+    var f=document.querySelector('input[name=mode]:checked'),fresh=f&&f.value==='fresh';
+    var locked=!fresh&&<?= json_encode($prevMode === 'multi') ?>;
+    var t=document.querySelector('input[name=tenancy]:checked'),multi=locked||(t&&t.value==='multi');
+    document.getElementById('freshOpts').style.display=fresh?'':'none';
+    document.getElementById('tenancyBox').style.display=locked?'none':'';
+    document.getElementById('multiLocked').style.display=locked?'':'none';
+    document.getElementById('sysNameBox').style.display=multi?'':'none';
+    document.getElementById('orgNameBox').style.display=locked?'none':'';
+    document.getElementById('orgNameLabel').textContent=multi?'ชื่อสถานศึกษาแรก (สร้างพร้อมข้อมูลตั้งต้น)':'ชื่อสถานศึกษา';
+  }
   toggleMode();
   </script>
 
@@ -531,12 +606,14 @@ ul.log{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#33415A}
   <?php if (!empty($S['log'])): ?><div class="alert good"><ul class="log"><?php foreach ($S['log'] as $l): ?><li><?= h($l) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
   <form method="post" class="card">
     <?= csrf_field() ?>
-    <h2>ตั้งค่าบัญชีผู้ดูแลระบบ</h2>
-    <p class="sub">ผู้ดูแลระบบจัดการผู้ใช้ บทบาท migrations และสำรองข้อมูล (ไม่มีสิทธิ์อนุมัติหรือบันทึกเงิน)
+    <h2>ตั้งค่าบัญชีผู้ดูแลระบบ<?= $multi ? 'กลาง' : '' ?></h2>
+    <p class="sub"><?= $multi
+        ? 'ผู้ดูแลระบบกลางสร้างสถานศึกษาและผู้ดูแลระบบสถานศึกษา รัน migrations และสำรองข้อมูล — ไม่สังกัดสถานศึกษาใดและไม่เห็นข้อมูลงบประมาณของสถานศึกษา'
+        : 'ผู้ดูแลระบบจัดการผู้ใช้ บทบาท migrations และสำรองข้อมูล (ไม่มีสิทธิ์อนุมัติหรือบันทึกเงิน)' ?>
       <?php if ($admins): ?> · ผู้ดูแลระบบเดิม: <?= h(implode(', ', array_map(fn($a) => $a['username'], $admins))) ?> — ใช้ชื่อผู้ใช้เดิมเพื่อรีเซ็ตรหัสผ่าน<?php endif; ?></p>
     <div class="grid">
       <label>ชื่อผู้ใช้<input type="text" name="username" value="<?= h($_POST['username'] ?? ($admins[0]['username'] ?? 'admin')) ?>" autocomplete="username" required></label>
-      <label>ชื่อ-สกุล<input type="text" name="name" value="<?= h($_POST['name'] ?? ($admins[0]['name'] ?? 'ผู้ดูแลระบบ')) ?>" required></label>
+      <label>ชื่อ-สกุล<input type="text" name="name" value="<?= h($_POST['name'] ?? ($admins[0]['name'] ?? ($multi ? 'ผู้ดูแลระบบกลาง' : 'ผู้ดูแลระบบ'))) ?>" required></label>
       <label>อีเมล (ไม่บังคับ)<input type="email" name="email" value="<?= h($_POST['email'] ?? '') ?>"></label>
     </div>
     <div class="grid">
@@ -549,7 +626,11 @@ ul.log{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#33415A}
 <?php elseif ($step === 'done'): $d = $S['done']; ?>
   <div class="card">
     <h2>ติดตั้งเสร็จสมบูรณ์</h2>
+    <?php if (!empty($d['multi'])): ?>
+    <p class="sub">เข้าสู่ระบบด้วยชื่อผู้ใช้ <b><?= h($d['username']) ?></b> (ผู้ดูแลระบบกลาง) แล้วไปที่เมนู <b>สถานศึกษา</b> เพื่อกำหนดผู้ดูแลระบบของสถานศึกษาแรก และเพิ่มสถานศึกษาอื่น ๆ</p>
+    <?php else: ?>
     <p class="sub">เข้าสู่ระบบด้วยชื่อผู้ใช้ <b><?= h($d['username']) ?></b> แล้วไปที่เมนู <b>ผู้ใช้และบทบาท</b> เพื่อเพิ่มเจ้าหน้าที่งานแผนฯ และงานการเงิน</p>
+    <?php endif; ?>
     <?php if ($d['demo']): ?>
       <div class="alert info">บัญชีตัวอย่างใช้รหัสผ่าน <code><?= h(Seeder::DEMO_PASSWORD) ?></code>:
         <span class="mono">planner, finance, procurement, director, plandeputy, acddeputy, autohead, teacher, board</span> — ปิดหรือลบบัญชีเหล่านี้ก่อนใช้งานจริง</div>

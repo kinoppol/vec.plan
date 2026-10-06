@@ -13,7 +13,7 @@ $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/') . '
 $loggedIn = false;
 try {
     $loggedIn = current_user() !== null;
-    $org = setting('org_name', 'วิทยาลัย');
+    $org = $loggedIn && current_institution_id() ? institution(current_institution_id())['name'] : public_org_name();
 } catch (Throwable $e) {
     http_response_code(503);
     echo '<!doctype html><meta charset="utf-8"><title>ระบบขัดข้อง</title><body style="font-family:sans-serif;padding:40px">'

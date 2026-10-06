@@ -51,7 +51,9 @@ class Access
     public static function subtree(array $roots): array
     {
         $children = [];
-        foreach (db()->query('SELECT id, parent_id FROM org_units') as $u) $children[(int)$u['parent_id']][] = (int)$u['id'];
+        $st = db()->prepare('SELECT id, parent_id FROM org_units WHERE institution_id = ?');
+        $st->execute([current_institution_id() ?? 0]);
+        foreach ($st as $u) $children[(int)$u['parent_id']][] = (int)$u['id'];
         $out = [];
         $stack = array_map('intval', $roots);
         while ($stack) {

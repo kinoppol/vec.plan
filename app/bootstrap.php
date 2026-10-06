@@ -13,7 +13,7 @@ define('BACKUP_DIR', APP_ROOT . '/storage/backups');
 const REQUIRED_PHP = '8.0.0';
 const REQUIRED_EXTENSIONS = ['pdo', 'pdo_mysql', 'mbstring', 'json', 'session', 'openssl', 'fileinfo', 'ctype', 'zlib'];
 const SESSION_TIMEOUT = 8 * 3600;
-const MIN_PASSWORD_LENGTH = 10;
+const MIN_PASSWORD_LENGTH = 8;
 
 date_default_timezone_set('Asia/Bangkok');
 mb_internal_encoding('UTF-8');

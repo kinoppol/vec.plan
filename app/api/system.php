@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 
-// Admin-only system tools: database migrations, backups, audit log, environment info.
+// System tools: database migrations, backups, environment info (system admin), audit log (scoped per institution),
+// and switching a single-institution system to multi-institution mode.
 
 function sys_admin(): array
 {
-    return require_role('admin');
+    return require_system_admin();
 }
 
 function migrator(): Migrator
@@ -145,9 +146,18 @@ return [
     },
 
     'GET audit' => function () {
-        sys_admin();
+        // The central admin sees every institution; an institution admin sees only their own.
+        $u = require_login();
         $where = ['1 = 1'];
         $params = [];
+        if (is_super_admin($u)) {
+            if (!empty($_GET['institution_id'])) { $where[] = 'a.institution_id = ?'; $params[] = (int)$_GET['institution_id']; }
+        } else {
+            require_institution();
+            if (!has_role('admin', null, $u)) fail('ไม่มีสิทธิ์ดำเนินการนี้', 403);
+            $where[] = 'a.institution_id = ?';
+            $params[] = $u['institution_id'];
+        }
         if (!empty($_GET['action'])) { $where[] = 'a.action LIKE ?'; $params[] = $_GET['action'] . '%'; }
         if (!empty($_GET['user_id'])) { $where[] = 'a.user_id = ?'; $params[] = (int)$_GET['user_id']; }
         if (!empty($_GET['subject_type'])) { $where[] = 'a.subject_type = ?'; $params[] = (string)$_GET['subject_type']; }
@@ -155,10 +165,37 @@ return [
         $st = db()->prepare('SELECT COUNT(*) FROM audit_logs a WHERE ' . implode(' AND ', $where));
         $st->execute($params);
         $total = (int)$st->fetchColumn();
-        $st = db()->prepare('SELECT a.*, u.name AS user_name, u.username FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+        $st = db()->prepare('SELECT a.*, u.name AS user_name, u.username, i.name AS institution_name FROM audit_logs a
+            LEFT JOIN users u ON u.id = a.user_id LEFT JOIN institutions i ON i.id = a.institution_id
             WHERE ' . implode(' AND ', $where) . ' ORDER BY a.id DESC LIMIT 100 OFFSET ' . (($page - 1) * 100));
         $st->execute($params);
         return ['rows' => $st->fetchAll(), 'total' => $total, 'page' => $page];
+    },
+
+    /**
+     * Switch a single-institution system to multi-institution mode. The admin who does it becomes the
+     * central admin (no institution); the existing data stays as the first institution.
+     */
+    'POST enable_multi' => function () {
+        $u = require_system_admin();
+        if (is_multi()) fail('ระบบเปิดใช้งานแบบหลายสถานศึกษาอยู่แล้ว');
+        $b = body();
+        $st = db()->prepare('SELECT password_hash FROM users WHERE id = ?');
+        $st->execute([$u['id']]);
+        if (!password_verify((string)($b['password'] ?? ''), (string)$st->fetchColumn())) fail('รหัสผ่านไม่ถูกต้อง');
+        $systemName = trim((string)($b['system_name'] ?? '')) ?: 'ระบบแผนงานและงบประมาณสถานศึกษา';
+        $instId = (int)$u['institution_id'];
+        return tx(function (PDO $pdo) use ($u, $systemName, $instId) {
+            set_setting('tenancy_mode', 'multi', 0);
+            set_setting('system_name', mb_substr($systemName, 0, 200), 0);
+            audit('system.enable_multi', 'institution', $instId, null, ['system_name' => $systemName, 'central_admin' => $u['username']]);
+            $pdo->prepare('DELETE FROM role_assignments WHERE user_id = ?')->execute([$u['id']]);
+            $pdo->prepare('UPDATE users SET institution_id = NULL, position_title = ? WHERE id = ?')->execute(['ผู้ดูแลระบบกลาง', $u['id']]);
+            $pdo->prepare("INSERT INTO role_assignments (user_id, role, org_unit_id, fiscal_year_id) VALUES (?, 'super_admin', NULL, NULL)")->execute([$u['id']]);
+            $st = $pdo->prepare("SELECT COUNT(DISTINCT u.id) FROM users u JOIN role_assignments r ON r.user_id = u.id AND r.role = 'admin' WHERE u.institution_id = ? AND u.active = 1");
+            $st->execute([$instId]);
+            return ['ok' => true, 'institution_has_admin' => (int)$st->fetchColumn() > 0];
+        });
     },
 
     'GET info' => function () {

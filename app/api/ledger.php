@@ -225,14 +225,15 @@ return [
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
         if (!isset(ATTACH_MIME[$mime])) fail('รองรับเฉพาะไฟล์ PDF, DOCX, XLSX, JPG และ PNG');
         $fy = fiscal_year($fyId);
-        $dir = UPLOAD_DIR . '/' . $fy['year_be'] . '/ledger';
+        $rel = 'i' . $fy['institution_id'] . '/' . $fy['year_be'] . '/ledger';
+        $dir = UPLOAD_DIR . '/' . $rel;
         if (!is_dir($dir) && !mkdir($dir, 0775, true)) fail('สร้างโฟลเดอร์เก็บไฟล์ไม่ได้', 500);
         $name = bin2hex(random_bytes(16)) . '.' . ATTACH_MIME[$mime];
         if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) fail('บันทึกไฟล์ไม่ได้', 500);
         $kind = in_array($_POST['kind'] ?? '', ['receipt', 'letter', 'other'], true) ? $_POST['kind'] : 'other';
         db()->prepare('INSERT INTO attachments (attachable_type, attachable_id, kind, original_name, path, mime, size_bytes, uploaded_by)
             VALUES (\'ledger_entry\', ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$id, $kind, mb_substr(basename((string)$f['name']), 0, 255), $fy['year_be'] . '/ledger/' . $name, $mime, $f['size'], $u['id']]);
+            ->execute([$id, $kind, mb_substr(basename((string)$f['name']), 0, 255), $rel . '/' . $name, $mime, $f['size'], $u['id']]);
         $aid = (int)db()->lastInsertId();
         audit('attachment.upload', 'ledger_entry', $id, null, ['attachment_id' => $aid, 'name' => $f['name']]);
         return ['ok' => true, 'id' => $aid];

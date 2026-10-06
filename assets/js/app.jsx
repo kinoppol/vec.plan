@@ -11,6 +11,7 @@ const PAGES = {
   'fund-entry': () => <FundEntryPage />,
   ledger: () => <LedgerPage />,
   settings: () => <SettingsPage />,
+  institutions: () => <InstitutionsPage />,
   users: () => <UsersPage />,
   migrations: () => <MigrationsPage />,
   backups: () => <BackupsPage />,
@@ -64,8 +65,13 @@ function App() {
     reloadMeta: () => loadMeta(meta.fy),
     funds: buildFunds(meta.funds),
     units: buildUnits(meta.units),
+    central: !meta.fy,
   };
-  const page = PAGES[route.page] ? route.page : 'dashboard';
+  // The central admin has no fiscal year: only the admin pages exist for them.
+  const central = !meta.fy;
+  const page = central
+    ? (CENTRAL_PAGES.includes(route.page) ? route.page : 'institutions')
+    : (PAGES[route.page] ? route.page : 'dashboard');
   const navPage = page === 'project' ? 'projects' : page;
   return (
     <AppCtx.Provider value={ctx}>

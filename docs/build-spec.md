@@ -471,7 +471,7 @@ POST /api/permits/check               {project_id, amounts} → per fund: ok | {
 
 - **ความถูกต้องของเงิน:** การกระทำที่สร้าง ledger entries + เปลี่ยนสถานะ ต้องอยู่ใน DB transaction เดียว พร้อม row lock; test ครอบคลุมกรณีพร้อมกัน (2 คำขอแย่งเงินก้อนเดียว)
 - **Audit:** ทุกการเปลี่ยนแปลงข้อมูลโครงการ คำขอ เงิน ตั้งค่า บันทึกลง `audit_logs` (before/after)
-- **ความปลอดภัย:** HTTPS, CSRF, rate limit login, รหัสผ่าน ≥ 10 ตัว หรือ OAuth, session timeout 8 ชม., ไฟล์แนบตรวจ MIME (pdf, docx, xlsx, jpg, png) ≤ 20 MB, เก็บนอก public path และดาวน์โหลดผ่าน controller ตรวจสิทธิ์
+- **ความปลอดภัย:** HTTPS, CSRF, rate limit login, รหัสผ่าน ≥ 8 ตัว หรือ OAuth, session timeout 8 ชม., ไฟล์แนบตรวจ MIME (pdf, docx, xlsx, jpg, png) ≤ 20 MB, เก็บนอก public path และดาวน์โหลดผ่าน controller ตรวจสิทธิ์
 - **ภาษาและรูปแบบ:** UI ไทยทั้งหมด (`lang/th`), วันที่ พ.ศ. ทั้งแสดงและกรอก (date picker แบบ พ.ศ.), ตัวเลข `1,234,567.89`, ปีงบเริ่ม ต.ค.
 - **ประสิทธิภาพ:** รองรับ ≥ 500 โครงการ/ปี, ≥ 200 ผู้ใช้; หน้า scenario คำนวณใหม่ < 300 ms สำหรับ 500 โครงการ
 - **Responsive:** หน้าของ proposer/unit_head/director/permit/report ใช้งานได้ที่กว้าง 360 px

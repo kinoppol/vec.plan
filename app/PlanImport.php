@@ -66,19 +66,29 @@ class PlanImport
         }
         if ($errors) return ['projects' => [], 'errors' => $errors, 'totals' => [], 'row_count' => 0];
 
-        $units = $pdo->query('SELECT id, code, name FROM org_units WHERE active = 1')->fetchAll();
+        $inst = (int)fiscal_year($fyId)['institution_id'];
+        $st = $pdo->prepare('SELECT id, code, name FROM org_units WHERE institution_id = ? AND active = 1');
+        $st->execute([$inst]);
+        $units = $st->fetchAll();
         $st = $pdo->prepare('SELECT f.id, f.code, f.name, p.name AS parent_name FROM fund_sources f LEFT JOIN fund_sources p ON p.id = f.parent_id
             WHERE f.fiscal_year_id = ? AND f.is_leaf = 1 AND f.active = 1');
         $st->execute([$fyId]);
         $funds = $st->fetchAll();
-        $cats = $pdo->query('SELECT c.id, c.code, c.name FROM expense_categories c WHERE c.active = 1
-            AND NOT EXISTS (SELECT 1 FROM expense_categories k WHERE k.parent_id = c.id)')->fetchAll();
+        $st = $pdo->prepare('SELECT c.id, c.code, c.name FROM expense_categories c WHERE c.institution_id = ? AND c.active = 1
+            AND NOT EXISTS (SELECT 1 FROM expense_categories k WHERE k.parent_id = c.id)');
+        $st->execute([$inst]);
+        $cats = $st->fetchAll();
         $allowed = [];
-        foreach ($pdo->query('SELECT fund_source_id, expense_category_id FROM fund_source_allowed_categories') as $a) {
+        $st = $pdo->prepare('SELECT a.fund_source_id, a.expense_category_id FROM fund_source_allowed_categories a
+            JOIN fund_sources f ON f.id = a.fund_source_id WHERE f.fiscal_year_id = ?');
+        $st->execute([$fyId]);
+        foreach ($st as $a) {
             $allowed[(int)$a['fund_source_id']][(int)$a['expense_category_id']] = true;
         }
         $existing = [];
-        foreach ($pdo->query('SELECT code FROM projects') as $p) $existing[mb_strtolower($p['code'])] = true;
+        $st = $pdo->prepare('SELECT code FROM projects WHERE fiscal_year_id = ?');
+        $st->execute([$fyId]);
+        foreach ($st as $p) $existing[mb_strtolower($p['code'])] = true;
 
         $find = function (array $list, string $value, array $fields) {
             $v = mb_strtolower(trim($value));

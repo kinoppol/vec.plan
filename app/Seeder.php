@@ -12,30 +12,33 @@ class Seeder
         'adjustment_compare_mode' => 'per_fund',
     ];
 
-    /** Seed everything a fresh install needs. Returns the fiscal year id. */
-    public static function base(PDO $pdo, string $orgName, int $yearBe = 2570): int
+    /** Fiscal year (พ.ศ.) that contains today: October starts the next year. */
+    public static function currentYearBe(): int
     {
-        $set = $pdo->prepare('INSERT INTO settings (skey, svalue) VALUES (?, ?) ON DUPLICATE KEY UPDATE svalue = VALUES(svalue)');
-        $set->execute(['org_name', $orgName]);
+        return (int)date('Y') + 543 + ((int)date('n') >= 10 ? 1 : 0);
+    }
 
+    /** Seed the master data a new institution needs (its name lives in institutions). Returns the fiscal year id. */
+    public static function base(PDO $pdo, int $institutionId, int $yearBe = 2570): int
+    {
         $start = sprintf('%04d-10-01', $yearBe - 544);
         $end = sprintf('%04d-09-30', $yearBe - 543);
-        $pdo->prepare('INSERT INTO fiscal_years (year_be, starts_on, ends_on, status, proposal_open_from, proposal_open_to, settings)
-            VALUES (?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$yearBe, $start, $end, 'execution', sprintf('%04d-06-01', $yearBe - 544), sprintf('%04d-08-31', $yearBe - 544),
+        $pdo->prepare('INSERT INTO fiscal_years (institution_id, year_be, starts_on, ends_on, status, proposal_open_from, proposal_open_to, settings)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$institutionId, $yearBe, $start, $end, 'execution', sprintf('%04d-06-01', $yearBe - 544), sprintf('%04d-08-31', $yearBe - 544),
                 json_encode(self::DEFAULT_FY_SETTINGS, JSON_UNESCAPED_UNICODE)]);
         $fyId = (int)$pdo->lastInsertId();
-        $set->execute(['current_fiscal_year_id', (string)$fyId]);
+        set_setting('current_fiscal_year_id', (string)$fyId, $institutionId);
 
-        self::orgUnits($pdo);
-        self::expenseCategories($pdo);
+        self::orgUnits($pdo, $institutionId);
+        self::expenseCategories($pdo, $institutionId);
         self::fundSources($pdo, $fyId);
         self::alignment($pdo, $fyId);
         self::approvalChains($pdo, $fyId);
         return $fyId;
     }
 
-    public static function orgUnits(PDO $pdo): void
+    public static function orgUnits(PDO $pdo, int $institutionId): void
     {
         $tree = [
             ['ADM', 'ฝ่ายบริหารทรัพยากร', ['บริหารงานทั่วไป', 'บุคลากร', 'การเงิน', 'การบัญชี', 'พัสดุ', 'อาคารสถานที่', 'ทะเบียน', 'ประชาสัมพันธ์']],
@@ -49,22 +52,22 @@ class Seeder
             ['DEP-ELEC', 'แผนกวิชาช่างอิเล็กทรอนิกส์', 180, 64], ['DEP-ACC', 'แผนกวิชาการบัญชี', 210, 80],
             ['DEP-DBT', 'แผนกวิชาเทคโนโลยีธุรกิจดิจิทัล', 160, 58], ['DEP-GEN', 'แผนกวิชาสามัญสัมพันธ์', null, null],
         ];
-        $ins = $pdo->prepare('INSERT INTO org_units (parent_id, name, kind, code, student_count_vc, student_count_hvc, sort) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $ins = $pdo->prepare('INSERT INTO org_units (institution_id, parent_id, name, kind, code, student_count_vc, student_count_hvc, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         foreach ($tree as $i => [$code, $name, $sections]) {
-            $ins->execute([null, $name, 'division', $code, null, null, $i + 1]);
+            $ins->execute([$institutionId, null, $name, 'division', $code, null, null, $i + 1]);
             $divId = (int)$pdo->lastInsertId();
             foreach ($sections as $j => $s) {
-                $ins->execute([$divId, 'งาน' . $s, 'section', sprintf('%s-%02d', $code, $j + 1), null, null, $j + 1]);
+                $ins->execute([$institutionId, $divId, 'งาน' . $s, 'section', sprintf('%s-%02d', $code, $j + 1), null, null, $j + 1]);
             }
             if ($code === 'ACD') {
                 foreach ($departments as $k => [$dc, $dn, $vc, $hvc]) {
-                    $ins->execute([$divId, $dn, 'department', $dc, $vc, $hvc, 100 + $k]);
+                    $ins->execute([$institutionId, $divId, $dn, 'department', $dc, $vc, $hvc, 100 + $k]);
                 }
             }
         }
     }
 
-    public static function expenseCategories(PDO $pdo): void
+    public static function expenseCategories(PDO $pdo, int $institutionId): void
     {
         $tree = [
             ['PERS', 'งบบุคลากร', [['PERS-SAL', 'เงินเดือน'], ['PERS-PERM', 'ค่าจ้างประจำ'], ['PERS-TEMP', 'ค่าจ้างชั่วคราว'], ['PERS-GOV', 'ค่าตอบแทนพนักงานราชการ']]],
@@ -73,11 +76,11 @@ class Seeder
             ['SUBS', 'งบเงินอุดหนุน', [['SUBS-GEN', 'เงินอุดหนุน']]],
             ['OTHER', 'งบรายจ่ายอื่น', [['OTHER-GEN', 'รายจ่ายอื่น']]],
         ];
-        $ins = $pdo->prepare('INSERT INTO expense_categories (parent_id, code, name, sort) VALUES (?, ?, ?, ?)');
+        $ins = $pdo->prepare('INSERT INTO expense_categories (institution_id, parent_id, code, name, sort) VALUES (?, ?, ?, ?, ?)');
         foreach ($tree as $i => [$code, $name, $children]) {
-            $ins->execute([null, $code, $name, $i + 1]);
+            $ins->execute([$institutionId, null, $code, $name, $i + 1]);
             $pid = (int)$pdo->lastInsertId();
-            foreach ($children as $j => [$cc, $cn]) $ins->execute([$pid, $cc, $cn, $j + 1]);
+            foreach ($children as $j => [$cc, $cn]) $ins->execute([$institutionId, $pid, $cc, $cn, $j + 1]);
         }
     }
 
@@ -171,9 +174,12 @@ class Seeder
     /** Demo users, projects and fund movements matching design-brief §8. */
     public static function demo(PDO $pdo, int $fyId, int $adminId): void
     {
-        $unit = function (string $codeOrName) use ($pdo): int {
-            $st = $pdo->prepare('SELECT id FROM org_units WHERE code = ? OR name = ? LIMIT 1');
-            $st->execute([$codeOrName, $codeOrName]);
+        $st = $pdo->prepare('SELECT institution_id FROM fiscal_years WHERE id = ?');
+        $st->execute([$fyId]);
+        $inst = (int)$st->fetchColumn();
+        $unit = function (string $codeOrName) use ($pdo, $inst): int {
+            $st = $pdo->prepare('SELECT id FROM org_units WHERE institution_id = ? AND (code = ? OR name = ?) LIMIT 1');
+            $st->execute([$inst, $codeOrName, $codeOrName]);
             $id = $st->fetchColumn();
             if (!$id) throw new RuntimeException('demo: unit not found ' . $codeOrName);
             return (int)$id;
@@ -183,9 +189,9 @@ class Seeder
             $st->execute([$fyId, $code]);
             return (int)$st->fetchColumn();
         };
-        $cat = function (string $code) use ($pdo): int {
-            $st = $pdo->prepare('SELECT id FROM expense_categories WHERE code = ?');
-            $st->execute([$code]);
+        $cat = function (string $code) use ($pdo, $inst): int {
+            $st = $pdo->prepare('SELECT id FROM expense_categories WHERE institution_id = ? AND code = ?');
+            $st->execute([$inst, $code]);
             return (int)$st->fetchColumn();
         };
 
@@ -202,11 +208,11 @@ class Seeder
             ['teacher', 'ครูสมชาย แก้วมณี', 'ครูแผนกวิชาช่างยนต์', [['proposer', 'DEP-AUTO']]],
             ['board', 'นายบุญชัย ศรีสวัสดิ์', 'กรรมการวิทยาลัย', [['board_viewer', null]]],
         ];
-        $insU = $pdo->prepare('INSERT INTO users (username, name, password_hash, position_title, password_changed_at) VALUES (?, ?, ?, ?, NOW())');
+        $insU = $pdo->prepare('INSERT INTO users (institution_id, username, name, password_hash, position_title, password_changed_at) VALUES (?, ?, ?, ?, ?, NOW())');
         $insR = $pdo->prepare('INSERT INTO role_assignments (user_id, role, org_unit_id, fiscal_year_id) VALUES (?, ?, ?, ?)');
         $uid = [];
         foreach ($users as [$username, $name, $pos, $roles]) {
-            $insU->execute([$username, $name, $hash, $pos]);
+            $insU->execute([$inst, $username, $name, $hash, $pos]);
             $uid[$username] = (int)$pdo->lastInsertId();
             foreach ($roles as [$role, $unitCode]) $insR->execute([$uid[$username], $role, $unitCode ? $unit($unitCode) : null, $fyId]);
         }
@@ -323,7 +329,7 @@ class Seeder
                     $f === 'BUD-EQUIP' ? ['reason' => 'ได้รับหนังสือแจ้งการจัดสรรงบครุภัณฑ์แล้ว รอการโอนเงินงวดแรก'] : null);
             }
         }
-        $pdo->prepare('INSERT INTO counters (name, value) VALUES (?, 70) ON DUPLICATE KEY UPDATE value = GREATEST(value, 70)')->execute(['P' . $fy['year_be']]);
+        $pdo->prepare('INSERT INTO counters (institution_id, name, value) VALUES (?, ?, 70) ON DUPLICATE KEY UPDATE value = GREATEST(value, 70)')->execute([$inst, 'P' . $fy['year_be']]);
         unset($_SESSION['uid']);
     }
 }
