@@ -426,6 +426,41 @@ test('Backup dump contains tables, data and the ledger triggers', function () us
     ok(strpos($sql, 'trg_ledger_entries_no_update') > strpos($sql, 'INSERT INTO `ledger_entries`'), 'triggers after data');
     unlink(BACKUP_DIR . '/' . $r['file']);
 });
+test('fiscal-year backup holds only the chosen year and restores into an empty database', function () use ($pdo, $fyId, $fyB, $conf, $server) {
+    // A second year of institution 1 that must stay out of the dump.
+    $pdo->exec("INSERT INTO fiscal_years (institution_id, year_be, starts_on, ends_on) VALUES (1, 2571, '2027-10-01', '2028-09-30')");
+    $fy2571 = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO fund_sources (fiscal_year_id, code, name) VALUES (?, 'ONLY-2571', 'แหล่งเงินปี 2571')")->execute([$fy2571]);
+    throws(fn() => Backup::create($pdo, 'x', [$fyId, $fyB]), 'หนึ่งสถานศึกษา');
+    $r = Backup::create($pdo, 'x', [$fyId]);
+    ok(str_contains($r['file'], 'fy2570_MAIN'), 'file name carries year and institution: ' . $r['file']);
+    $sql = gzdecode(file_get_contents(BACKUP_DIR . '/' . $r['file']));
+    ok(!str_contains($sql, 'DROP TABLE'), 'no DROP TABLE in a year backup');
+    ok(!str_contains($sql, 'ONLY-2571'), 'other year left out');
+    ok(!str_contains($sql, 'วิทยาลัยบี'), 'other institution left out');
+    ok(str_contains($sql, '-- scope: ปีงบประมาณ 2570'));
+
+    $restore = $conf + ['name' => 'vec_plan_restore_test'];
+    $restore['name'] = 'vec_plan_restore_test';
+    $server->exec('DROP DATABASE IF EXISTS vec_plan_restore_test');
+    $server->exec('CREATE DATABASE vec_plan_restore_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    $rp = make_pdo($restore);
+    foreach (Migrator::splitSql($sql) as $stmt) $rp->exec($stmt);
+    $count = fn(PDO $p, string $q) => (int)$p->query($q)->fetchColumn();
+    eq(1, $count($rp, 'SELECT COUNT(*) FROM institutions'));
+    eq(1, $count($rp, 'SELECT COUNT(*) FROM fiscal_years'));
+    eq($count($pdo, "SELECT COUNT(*) FROM ledger_entries WHERE fiscal_year_id = {$fyId}"), $count($rp, 'SELECT COUNT(*) FROM ledger_entries'));
+    eq($count($pdo, "SELECT COUNT(*) FROM projects WHERE fiscal_year_id = {$fyId}"), $count($rp, 'SELECT COUNT(*) FROM projects'));
+    eq($count($pdo, "SELECT COUNT(*) FROM budget_lines bl JOIN projects p ON p.id = bl.project_id WHERE p.fiscal_year_id = {$fyId}"), $count($rp, 'SELECT COUNT(*) FROM budget_lines'));
+    eq($count($pdo, 'SELECT COUNT(*) FROM org_units WHERE institution_id = 1'), $count($rp, 'SELECT COUNT(*) FROM org_units'));
+    eq(0, $count($rp, "SELECT COUNT(*) FROM settings WHERE skey = 'current_fiscal_year_id'"));
+    // The restored ledger is still append-only.
+    throws(fn() => $rp->exec('DELETE FROM ledger_entries'), 'append-only');
+    // Restoring a year backup over a database that already has the tables stops at the first CREATE TABLE.
+    throws(fn() => $rp->exec(Migrator::splitSql($sql)[2] ?? ''), 'already exists');
+    $server->exec('DROP DATABASE vec_plan_restore_test');
+    unlink(BACKUP_DIR . '/' . $r['file']);
+});
 
 echo "\n" . $passed . ' passed, ' . count($failed) . " failed\n";
 $server->exec('DROP DATABASE IF EXISTS `' . $conf['name'] . '`');

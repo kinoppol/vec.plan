@@ -469,15 +469,16 @@ function BackupsPage() {
   const { data, error, reload } = useApi('system/backups');
   const info = useApi('system/info');
   const [busy, run] = useBusy();
+  const [creating, setCreating] = useState(false);
   if (!meta.permissions.system) return <Forbidden />;
-  const create = () => run(async () => { try { const r = await post('system/backup'); toast('สร้าง ' + r.file + ' แล้ว', 'ok'); reload(); } catch (e) { toast(e.message, 'err'); } });
   const del = f => run(async () => { if (!confirm('ลบไฟล์สำรอง ' + f + '?')) return; try { await post('system/backup_delete', { file: f }); reload(); } catch (e) { toast(e.message, 'err'); } });
   const i = info.data;
   return (
     <div className="stack">
       <PageHead crumb="ผู้ดูแลระบบ" title="สำรองข้อมูล">
-        <button className="btn primary" onClick={create} disabled={busy}>{busy ? 'กำลังสำรอง…' : 'สำรองข้อมูลตอนนี้'}</button>
+        <button className="btn primary" onClick={() => setCreating(true)} disabled={!data}>สำรองข้อมูลตอนนี้</button>
       </PageHead>
+      {creating && data && <CreateBackup years={data.fiscal_years} onClose={() => setCreating(false)} onDone={() => { setCreating(false); reload(); }} />}
       {i && (
         <div className="card card-b metric-list">
           <div><span>เวอร์ชันระบบ</span><span>{i.app_version}</span></div>
@@ -488,21 +489,75 @@ function BackupsPage() {
           <div><span>ติดตั้งเมื่อ</span><span>{i.installed ? thDate(i.installed.installed_at.slice(0, 10)) : '—'}</span></div>
         </div>
       )}
-      <Alert tone="blue">ไฟล์สำรองเป็น SQL (gzip) รวมโครงสร้าง ข้อมูล และ trigger ของสมุดบัญชี เก็บใน <span className="mono">storage/backups/</span> — ควรคัดลอกออกไปเก็บนอกเซิร์ฟเวอร์ และสำรองโฟลเดอร์ <span className="mono">uploads/</span> ด้วย · กู้คืนด้วยคำสั่ง <span className="mono">gunzip -c ไฟล์ | mysql -u … ชื่อฐานข้อมูล</span></Alert>
+      <Alert tone="blue">ไฟล์สำรองเป็น SQL (gzip) รวมโครงสร้าง ข้อมูล และ trigger ของสมุดบัญชี เก็บใน <span className="mono">storage/backups/</span> — ควรคัดลอกออกไปเก็บนอกเซิร์ฟเวอร์ และสำรองโฟลเดอร์ <span className="mono">uploads/</span> ด้วย · กู้คืนด้วยคำสั่ง <span className="mono">gunzip -c ไฟล์ | mysql -u … ชื่อฐานข้อมูล</span>
+        · ไฟล์สำรองรายปีงบประมาณกู้คืนได้ในฐานข้อมูลว่างเท่านั้น (ไม่มีคำสั่งลบตาราง จึงไม่ทับข้อมูลปีอื่นในฐานข้อมูลที่ใช้งานอยู่)</Alert>
       {error && <LoadError error={error} onRetry={reload} />}
       <div className="card">
         <div className="table-wrap"><table className="tbl">
-          <thead><tr><th>ไฟล์</th><th>สร้างเมื่อ</th><th className="th-num">ขนาด</th><th /></tr></thead>
+          <thead><tr><th>ไฟล์</th><th>ขอบเขต</th><th>สร้างเมื่อ</th><th className="th-num">ขนาด</th><th /></tr></thead>
           <tbody>
             {data && data.backups.map(b => (
-              <tr key={b.file}><td className="mono xs">{b.file}</td><td className="sm">{thDate(b.created_at, true)}</td><td className="num sm">{(b.size / 1024).toFixed(1)} KB</td>
+              <tr key={b.file}><td className="mono xs">{b.file}</td>
+                <td className="sm">{b.year_scoped ? <Badge bg="var(--blue-bg)" fg="var(--blue-fg)">{b.scope}</Badge> : b.scope}</td>
+                <td className="sm">{thDate(b.created_at, true)}</td><td className="num sm">{(b.size / 1024).toFixed(1)} KB</td>
                 <td className="nowrap"><a className="btn sm" href={apiUrl('system/backup_download', { file: b.file })}>ดาวน์โหลด</a>{' '}<button className="btn sm danger" onClick={() => del(b.file)}>ลบ</button></td></tr>
             ))}
-            {data && data.backups.length === 0 && <tr><td colSpan={4} className="sm muted">ยังไม่มีไฟล์สำรอง</td></tr>}
+            {data && data.backups.length === 0 && <tr><td colSpan={5} className="sm muted">ยังไม่มีไฟล์สำรอง</td></tr>}
           </tbody>
         </table></div>
       </div>
     </div>
+  );
+}
+
+// Choose what to back up: the whole database, or selected fiscal years of one institution.
+function CreateBackup({ years, onClose, onDone }) {
+  const { toast } = useApp();
+  const institutions = [];
+  years.forEach(y => { if (!institutions.some(i => i.id === y.institution_id)) institutions.push({ id: y.institution_id, name: y.institution_name, code: y.institution_code }); });
+  const [scope, setScope] = useState('full');
+  const [inst, setInst] = useState(institutions[0] ? institutions[0].id : null);
+  const [picked, setPicked] = useState([]);
+  const [err, setErr] = useState('');
+  const [busy, run] = useBusy();
+  const instYears = years.filter(y => y.institution_id === inst);
+  const toggle = id => setPicked(picked.includes(id) ? picked.filter(x => x !== id) : [...picked, id]);
+  const go = () => run(async () => {
+    setErr('');
+    try {
+      const r = await post('system/backup', scope === 'years' ? { fiscal_year_ids: picked } : {});
+      toast('สร้าง ' + r.file + ' แล้ว', 'ok');
+      onDone();
+    } catch (e) { setErr(e.message); }
+  });
+  return (
+    <Modal title="สำรองข้อมูล" onClose={onClose} footer={<Fragment>
+      <button className="btn" onClick={onClose}>ยกเลิก</button>
+      <button className="btn primary" onClick={go} disabled={busy || (scope === 'years' && !picked.length)}>{busy ? 'กำลังสำรอง…' : 'สำรองข้อมูล'}</button>
+    </Fragment>}>
+      <label className="check"><input type="radio" checked={scope === 'full'} onChange={() => setScope('full')} />
+        <span><b>ทั้งระบบ</b><div className="xs muted">ทุกตาราง ทุกสถานศึกษา ทุกปีงบประมาณ — กู้คืนทับฐานข้อมูลเดิมได้</div></span></label>
+      <label className="check"><input type="radio" checked={scope === 'years'} onChange={() => setScope('years')} disabled={!years.length} />
+        <span><b>เลือกปีงบประมาณ</b><div className="xs muted">เฉพาะข้อมูลของปีที่เลือก (แหล่งเงิน ประมาณการ โครงการ สมุดบัญชี ความสอดคล้อง สายอนุมัติ) พร้อมข้อมูลหลักที่อ้างถึง (หน่วยงาน หมวดรายจ่าย ผู้ใช้) — กู้คืนได้ในฐานข้อมูลว่างเท่านั้น</div></span></label>
+      {scope === 'years' && (
+        <div className="stack" style={{ gap: 8, paddingLeft: 24 }}>
+          {institutions.length > 1 && (
+            <Field label="สถานศึกษา">
+              <select className="select" value={inst || ''} onChange={e => { setInst(+e.target.value); setPicked([]); }}>
+                {institutions.map(i => <option key={i.id} value={i.id}>{i.name} ({i.code})</option>)}
+              </select>
+            </Field>
+          )}
+          <div className="row wrap" style={{ gap: '6px 16px' }}>
+            {instYears.map(y => (
+              <label key={y.id} className="check"><input type="checkbox" checked={picked.includes(y.id)} onChange={() => toggle(y.id)} />ปีงบประมาณ {y.year_be}</label>
+            ))}
+          </div>
+          <div className="xs muted">ไฟล์แนบในโฟลเดอร์ <span className="mono">uploads/</span> ไม่รวมอยู่ในไฟล์สำรอง</div>
+        </div>
+      )}
+      {err && <Alert tone="red">{err}</Alert>}
+    </Modal>
   );
 }
 
@@ -545,4 +600,4 @@ function AuditPage() {
   );
 }
 
-Object.assign(window, { UsersPage, UserEditor, RoleEditor, ResetPassword, InstitutionsPage, MigrationsPage, CreateMigration, BackupsPage, AuditPage });
+Object.assign(window, { UsersPage, UserEditor, RoleEditor, ResetPassword, InstitutionsPage, MigrationsPage, CreateMigration, BackupsPage, CreateBackup, AuditPage });

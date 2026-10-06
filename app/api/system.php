@@ -108,13 +108,22 @@ return [
 
     'GET backups' => function () {
         sys_admin();
-        return ['backups' => Backup::list(), 'writable' => is_dir(BACKUP_DIR) && is_writable(BACKUP_DIR)];
+        // Fiscal years that can be backed up on their own, grouped by institution.
+        $years = db()->query('SELECT f.id, f.year_be, f.status, i.id AS institution_id, i.code AS institution_code, i.name AS institution_name
+            FROM fiscal_years f JOIN institutions i ON i.id = f.institution_id ORDER BY i.name, i.id, f.year_be DESC')->fetchAll();
+        return ['backups' => Backup::list(), 'writable' => is_dir(BACKUP_DIR) && is_writable(BACKUP_DIR), 'fiscal_years' => $years];
     },
 
+    // Body: {} = whole database, or {fiscal_year_ids: [...]} = only those years of one institution.
     'POST backup' => function () {
         sys_admin();
-        $r = Backup::create(db(), 'manual');
-        audit('backup.create', 'backup', null, null, $r);
+        $ids = (array)(body()['fiscal_year_ids'] ?? []);
+        try {
+            $r = $ids ? Backup::create(db(), 'fy', $ids) : Backup::create(db(), 'manual');
+        } catch (RuntimeException $e) {
+            fail($e->getMessage());
+        }
+        audit('backup.create', 'backup', null, null, $r + ['fiscal_year_ids' => array_map('intval', $ids)]);
         return ['ok' => true] + $r;
     },
 
