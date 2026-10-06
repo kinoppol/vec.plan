@@ -1,0 +1,2 @@
+# Not web-accessible: served only through PHP controllers.
+Require all denied

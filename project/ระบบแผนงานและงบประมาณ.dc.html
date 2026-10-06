@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:'IBM Plex Sans','IBM Plex Sans Thai',sans-serif;font-variant-numeric:tabular-nums;color:#18233A;background:#F2F5F9;-webkit-font-smoothing:antialiased}
+a{color:#1D4E9E;text-decoration:none}
+a:hover{color:#0F2C5C;text-decoration:underline}
+input,select,textarea,button{font-family:inherit}
+input[type=range]{accent-color:#0F2C5C}
+input[type=checkbox]{accent-color:#0F2C5C;width:15px;height:15px}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:#F2F5F9;color:#18233A">
+  <aside style="width:{{ sideW }};flex-shrink:0;background:#0B1F3F;color:#fff;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column">
+    <div style="height:64px;display:flex;align-items:center;gap:12px;padding:0 19px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0">
+      <div style="width:34px;height:34px;border-radius:8px;background:#1E4C9A;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">ผง</div>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;min-width:0">
+          <div style="font-size:14px;font-weight:600;white-space:nowrap">แผนงานและงบประมาณ</div>
+          <div style="font-size:11.5px;color:rgba(255,255,255,.6);white-space:nowrap">วิทยาลัยการอาชีพตัวอย่าง</div>
+        </div>
+      </sc-if>
+    </div>
+    <nav style="flex:1;padding:8px 0 16px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="14">
+        <sc-if value="{{ n.showGroup }}">
+          <div style="padding:16px 22px 6px;font-size:11px;font-weight:600;letter-spacing:.04em;color:rgba(255,255,255,.45)">{{ n.label }}</div>
+        </sc-if>
+        <sc-if value="{{ n.isItem }}">
+          <div onClick="{{ n.go }}" title="{{ n.label }}" style="margin:1px 10px;height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:6px;cursor:{{ n.cursor }};background:{{ n.bg }};color:{{ n.fg }};opacity:{{ n.op }};font-size:13.5px;font-weight:{{ n.fw }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="{{ n.icon }}"></path></svg>
+            <sc-if value="{{ expanded }}"><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span></sc-if>
+            <sc-if value="{{ n.showCount }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#C2410C;color:#fff;font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ n.count }}</span></sc-if>
+          </div>
+        </sc-if>
+      </sc-for>
+    </nav>
+    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+      <div style="margin:0 14px 16px;padding:12px 14px;border-radius:8px;background:rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="font-weight:600">ปีงบประมาณ 2570</span><span style="color:rgba(255,255,255,.65)">วันที่ 107/365</span></div>
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden"><div style="width:29.3%;height:100%;background:#7FA6E8"></div></div>
+        <div style="font-size:11.5px;color:rgba(255,255,255,.6)">1 ต.ค. 2569 – 30 ก.ย. 2570</div>
+      </div>
+    </sc-if>
+  </aside>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="height:64px;background:#fff;border-bottom:1px solid #E1E6EE;display:flex;align-items:center;gap:14px;padding:0 24px;position:sticky;top:0;z-index:30;overflow:hidden;min-width:0">
+      <button onClick="{{ toggleSide }}" title="ยุบ/ขยายเมนู" style="width:36px;height:36px;border:1px solid #E1E6EE;border-radius:6px;background:#fff;color:#33415A;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0" style-hover="background:#F3F6FA">
+        <svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
+      <select style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13.5px;font-weight:600;color:#0F2245;background:#fff;flex-shrink:0">
+        <option>ปีงบประมาณ 2570</option>
+        <option>ปีงบประมาณ 2569</option>
+      </select>
+      <div style="flex:1 1 220px;max-width:440px;min-width:150px;height:36px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #E1E6EE;border-radius:6px;background:#F6F8FB;color:#6A7689">
+        <svg width="16" height="16" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+        <input placeholder="ค้นหาโครงการ เลขที่เอกสาร หรือเลขที่รายการ" style="flex:1;min-width:0;border:0;background:transparent;outline:none;font-size:13.5px;color:#18233A">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid #D5DBE4;border-radius:4px;background:#fff;white-space:nowrap">Ctrl K</span>
+      </div>
+      <div style="flex:1 1 0;min-width:0"></div>
+      <div title="ข้อมูล ณ 15 ม.ค. 2570 09:42" style="font-size:12px;color:#5C6880;white-space:nowrap;display:flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto;overflow:hidden">
+        <span style="width:7px;height:7px;border-radius:50%;background:#1F9D55;flex-shrink:0"></span><span style="overflow:hidden;text-overflow:ellipsis">ข้อมูล ณ 15 ม.ค. 2570 09:42</span>
+      </div>
+      <button title="การแจ้งเตือน" style="position:relative;width:36px;height:36px;border:0;border-radius:6px;background:transparent;color:#33415A;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0" style-hover="background:#F3F6FA">
+        <svg width="19" height="19" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        <span style="position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#C2410C;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">5</span>
+      </button>
+      <div title="นางสาวสมศรี ใจดี · เจ้าหน้าที่งานวางแผนและงบประมาณ" style="display:flex;align-items:center;gap:10px;padding-left:14px;border-left:1px solid #E1E6EE;flex:0 1 auto;min-width:48px;overflow:hidden">
+        <div style="width:34px;height:34px;border-radius:50%;background:#DAE6FA;color:#16469A;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0">สศ</div>
+        <div style="display:flex;flex-direction:column;line-height:1.3;min-width:0;overflow:hidden">
+          <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">นางสาวสมศรี ใจดี</span>
+          <span style="font-size:11.5px;color:#5C6880;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">เจ้าหน้าที่งานวางแผนและงบประมาณ</span>
+        </div>
+      </div>
+    </header>
+
+    <main style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:20px;min-width:0">
+
+<!--PAGE:DASHBOARD-->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:12.5px;color:#6A7689">หน้าหลัก</div>
+              <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;color:#0F2245">แดชบอร์ดงานวางแผนและงบประมาณ</h1>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">ส่งออกรายงานฐานะเงิน</button>
+              <button onClick="{{ goScenario }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">เปิดชุดพิจารณา</button>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:12px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12.5px;font-weight:600;color:#5C6880">ตัวกรอง</span>
+            <select style="height:34px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>ปีงบประมาณ 2570</option></select>
+            <select style="height:34px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>ทุกฝ่าย</option><option>ฝ่ายวิชาการ</option><option>ฝ่ายบริหารทรัพยากร</option><option>ฝ่ายแผนงานและความร่วมมือ</option><option>ฝ่ายพัฒนากิจการนักเรียนนักศึกษา</option></select>
+            <select style="height:34px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>ทุกแผนกวิชา/งาน</option><option>แผนกวิชาช่างยนต์</option><option>แผนกวิชาช่างไฟฟ้ากำลัง</option></select>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ fundChips }}" as="c" hint-placeholder-count="4">
+                <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid #D5DBE4;border-radius:15px;font-size:12.5px;background:#fff"><span style="width:8px;height:8px;border-radius:2px;background:{{ c.color }}"></span>{{ c.short }}</span>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ dashWarning }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:8px;background:#FDECEC;border:1px solid #F2B8B8;color:#8E1F1F">
+                <svg width="20" height="20" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"></path></svg>
+                <div style="flex:1;font-size:13.5px;line-height:1.55"><b>เงินบริจาค: คงเหลือจัดสรรได้ (จริง) ติดลบ −15,000.00 บาท</b> — จัดสรรให้ P70-050 ก่อนรับเงินบริจาคงวดที่ 2 ควรชะลอการขออนุญาตจนกว่าเงินเข้า</div>
+                <a onClick="{{ goLedgerDon }}" style="font-size:13px;font-weight:600;color:#8E1F1F;white-space:nowrap;cursor:pointer">ดูสมุดบัญชี</a>
+              </div>
+              <div style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:8px;background:#FFF3E8;border:1px solid #F5C9A0;color:#8A3A06">
+                <svg width="20" height="20" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 8v4M12 16h.01"></path></svg>
+                <div style="flex:1;font-size:13.5px">มีคำขอ <b>ใช้งบเพิ่ม</b> 1 รายการรอพิจารณา · RP70-008 · +38,500.00 บาท จากเงินรายได้สถานศึกษา</div>
+                <a onClick="{{ goReplan }}" style="font-size:13px;font-weight:600;color:#8A3A06;white-space:nowrap;cursor:pointer">เปิดคำขอ</a>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dashError }}">
+            <div style="display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:10px;background:#fff;border:1px solid #F2B8B8">
+              <div style="width:40px;height:40px;border-radius:50%;background:#FDECEC;color:#B42323;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+              </div>
+              <div style="flex:1">
+                <div style="font-weight:600;color:#8E1F1F">โหลดข้อมูลฐานะเงินไม่สำเร็จ</div>
+                <div style="font-size:13px;color:#5C6880;margin-top:2px">เชื่อมต่อสมุดบัญชีไม่ได้ (รหัส LEDGER-503) · ข้อมูลล่าสุดที่โหลดได้ 14 ม.ค. 2570 17:30</div>
+              </div>
+              <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;cursor:pointer">ดูข้อมูลล่าสุด</button>
+              <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;cursor:pointer">ลองอีกครั้ง</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dashEmpty }}">
+            <div style="background:#fff;border:1px dashed #C9D2DE;border-radius:10px;padding:56px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+              <div style="width:52px;height:52px;border-radius:12px;background:#EEF3FB;color:#0F2C5C;display:flex;align-items:center;justify-content:center">
+                <svg width="24" height="24" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15h6"></path></svg>
+              </div>
+              <div style="font-size:16px;font-weight:600;color:#0F2245">ยังไม่มีแผนตั้งต้นสำหรับปีงบประมาณ 2570</div>
+              <div style="font-size:13.5px;color:#5C6880;max-width:460px;text-wrap:pretty">แดชบอร์ดจะแสดงฐานะเงินและสถานะโครงการหลังบันทึกมติที่ประชุมและยืนยันแผนตั้งต้น ขณะนี้มีข้อเสนอโครงการ 64 รายการในรอบพิจารณา</div>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;cursor:pointer">ตั้งค่าประมาณการรายรับ</button>
+                <button onClick="{{ goScenario }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;cursor:pointer">ไปที่ชุดพิจารณา</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dashLoading }}">
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+                <sc-for list="{{ four }}" as="x" hint-placeholder-count="4">
+                  <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px">
+                    <div style="width:40%;height:12px;border-radius:4px;background:#E9EDF3"></div>
+                    <div style="width:65%;height:26px;border-radius:4px;background:#E9EDF3"></div>
+                    <div style="width:85%;height:10px;border-radius:4px;background:#F0F3F7"></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:18px">
+                <div style="width:180px;height:14px;border-radius:4px;background:#E9EDF3"></div>
+                <sc-for list="{{ four }}" as="x" hint-placeholder-count="4"><div style="height:14px;border-radius:4px;background:#F0F3F7"></div></sc-for>
+              </div>
+              <div style="font-size:13px;color:#5C6880;text-align:center">กำลังคำนวณฐานะเงินจากสมุดบัญชี…</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dashContent }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
+                <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                  <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04);padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                      <span style="font-size:13px;font-weight:500;color:#5C6880">{{ k.label }}</span>
+                      <a onClick="{{ k.go }}" style="font-size:12px;cursor:pointer">ดูรายการ</a>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:28px;font-weight:600;color:#0F2245;letter-spacing:-.01em">{{ k.value }}</span><span style="font-size:13px;color:#5C6880">ล้านบาท</span></div>
+                    <div style="height:6px;border-radius:3px;overflow:hidden;display:flex;background:#EEF1F5">
+                      <sc-for list="{{ k.segs }}" as="s"><div style="width:{{ s.w }};background:{{ s.color }}"></div></sc-for>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;line-height:1.5">
+                      <span style="color:#3A4659">{{ k.sub }}</span>
+                      <span style="color:{{ k.sub2c }};font-weight:{{ k.sub2w }}">{{ k.sub2 }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px;align-items:start">
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">ฐานะเงินรายกอง</h3>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:#5C6880">
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:#33415A"></span>จ่ายจริง</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:#33415A;opacity:.55"></span>ผูกพัน</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:#33415A;opacity:.22"></span>จัดสรรยังไม่ใช้</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:repeating-linear-gradient(45deg,#B9C2CF 0 2px,#EEF1F5 2px 4px)"></span>กันไว้</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:2px;height:12px;background:#0F2245"></span>รับจริงสะสม</span>
+                    </div>
+                  </div>
+                  <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:20px">
+                    <sc-for list="{{ fundRows }}" as="f" hint-placeholder-count="4">
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+                          <a onClick="{{ f.open }}" style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:#18233A;cursor:pointer"><span style="width:10px;height:10px;border-radius:3px;background:{{ f.color }}"></span>{{ f.name }}</a>
+                          <span style="font-size:12.5px;color:#5C6880">คงเหลือจัดสรรได้ (จริง) <b style="color:{{ f.availColor }};font-weight:600">{{ f.availActS }}</b></span>
+                        </div>
+                        <div style="position:relative;height:14px">
+                          <div style="position:absolute;inset:0;border-radius:4px;overflow:hidden;display:flex;background:#EEF1F5">
+                            <div style="width:{{ f.wPaid }};background:{{ f.color }}"></div>
+                            <div style="width:{{ f.wCom }};background:{{ f.color }};opacity:.55"></div>
+                            <div style="width:{{ f.wAlloc }};background:{{ f.color }};opacity:.22"></div>
+                            <div style="width:{{ f.wRes }};background:repeating-linear-gradient(45deg,#B9C2CF 0 2px,#EEF1F5 2px 4px)"></div>
+                          </div>
+                          <div title="รับจริงสะสม" style="position:absolute;top:-4px;bottom:-4px;left:{{ f.mRecv }};width:2px;background:#0F2245;border-radius:1px"></div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;font-size:12px;color:#5C6880">
+                          <div>จ่ายจริง<div style="font-size:13px;color:#18233A;font-weight:500">{{ f.paidS }}</div></div>
+                          <div>ผูกพัน<div style="font-size:13px;color:#18233A;font-weight:500">{{ f.comS }}</div></div>
+                          <div>จัดสรรแล้ว<div style="font-size:13px;color:#18233A;font-weight:500">{{ f.allocS }}</div></div>
+                          <div style="text-align:right">ประมาณการทั้งปี<div style="font-size:13px;color:#18233A;font-weight:500">{{ f.totalS }}</div></div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #EDF0F5">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">ต้องทำวันนี้ <span style="font-weight:500;color:#5C6880">(5)</span></h3>
+                    <a style="font-size:12.5px;cursor:pointer">งานของฉันทั้งหมด</a>
+                  </div>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ todos }}" as="t" hint-placeholder-count="5">
+                      <div onClick="{{ t.go }}" style="display:flex;gap:12px;align-items:flex-start;padding:12px 18px;border-bottom:1px solid #EEF1F5;cursor:pointer" style-hover="background:#F7F9FC">
+                        <span style="flex-shrink:0;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:11.5px;font-weight:600;white-space:nowrap;background:{{ t.bg }};color:{{ t.fg }}">{{ t.type }}</span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:13.5px;font-weight:500;line-height:1.45">{{ t.title }}</div>
+                          <div style="font-size:12px;color:#5C6880;margin-top:2px">{{ t.meta }}</div>
+                        </div>
+                        <span style="font-size:13px;font-weight:600;white-space:nowrap;color:{{ t.ac }}">{{ t.amount }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px;align-items:start">
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">การใช้จ่ายสะสมเทียบแผน</h3>
+                    <div style="display:flex;gap:14px;font-size:11.5px;color:#5C6880">
+                      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;border-top:2px dashed #8A96A8"></span>แผน</span>
+                      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;border-top:2.5px solid #0F2C5C"></span>จ่ายจริง</span>
+                    </div>
+                  </div>
+                  <div style="padding:14px 18px 10px">
+                    <svg viewBox="0 0 640 230" style="width:100%;height:auto;display:block">
+                      <sc-for list="{{ chart.grid }}" as="g"><line x1="44" x2="628" y1="{{ g.y }}" y2="{{ g.y }}" style="stroke:#EEF1F5;stroke-width:1"></line><text x="36" y="{{ g.ty }}" style="font-size:11px;fill:#6A7689;text-anchor:end">{{ g.label }}</text></sc-for>
+                      <sc-for list="{{ chart.months }}" as="m"><text x="{{ m.x }}" y="222" style="font-size:11px;fill:#6A7689;text-anchor:middle">{{ m.label }}</text></sc-for>
+                      <path d="{{ chart.area }}" style="fill:#0F2C5C;opacity:.08"></path>
+                      <path d="{{ chart.plan }}" style="fill:none;stroke:#8A96A8;stroke-width:2;stroke-dasharray:5 4"></path>
+                      <path d="{{ chart.actual }}" style="fill:none;stroke:#0F2C5C;stroke-width:2.5;stroke-linejoin:round"></path>
+                      <line x1="{{ chart.todayX }}" x2="{{ chart.todayX }}" y1="12" y2="202" style="stroke:#C2410C;stroke-width:1.5"></line>
+                      <text x="{{ chart.todayLX }}" y="22" style="font-size:11px;fill:#A8390B;font-weight:600">วันนี้ · 15 ม.ค.</text>
+                      <circle cx="{{ chart.ax }}" cy="{{ chart.ay }}" r="4" style="fill:#0F2C5C;stroke:#fff;stroke-width:2"></circle>
+                    </svg>
+                  </div>
+                  <div style="display:flex;gap:24px;flex-wrap:wrap;padding:0 18px 16px;font-size:12.5px;color:#5C6880">
+                    <span>จ่ายจริงถึงวันนี้ <b style="color:#18233A">6.52 ล้าน</b></span>
+                    <span>แผนถึงวันนี้ <b style="color:#18233A">7.10 ล้าน</b></span>
+                    <span>ต่ำกว่าแผน <b style="color:#8A6400">0.58 ล้าน (8.2%)</b></span>
+                  </div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">สถานะโครงการตามฝ่าย</h3>
+                    <div style="display:flex;gap:12px;font-size:11.5px;color:#5C6880">
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#1F9D55"></span>ตามแผน 95</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#D9A406"></span>ล่าช้า 22</span>
+                      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#D23C3C"></span>เสี่ยง 11</span>
+                    </div>
+                  </div>
+                  <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px">
+                    <sc-for list="{{ divStatus }}" as="d" hint-placeholder-count="4">
+                      <div style="display:flex;flex-direction:column;gap:6px">
+                        <div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ d.name }}</span><span style="color:#5C6880">{{ d.total }} โครงการ</span></div>
+                        <div style="display:flex;height:22px;gap:2px;width:{{ d.w }}">
+                          <div style="flex:{{ d.g }};background:#1F9D55;border-radius:3px 0 0 3px;color:#fff;font-size:11.5px;font-weight:600;display:flex;align-items:center;padding-left:6px">{{ d.g }}</div>
+                          <div style="flex:{{ d.y }};background:#D9A406;color:#1E1600;font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ d.y }}</div>
+                          <div style="flex:{{ d.r }};background:#D23C3C;border-radius:0 3px 3px 0;color:#fff;font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ d.r }}</div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px;align-items:start">
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">งบที่อนุมัติตามความสอดคล้อง</h3>
+                    <div style="display:flex;border:1px solid #C9D2DE;border-radius:6px;overflow:hidden">
+                      <button onClick="{{ setAlignStrat }}" style="height:30px;padding:0 12px;border:0;font-size:12.5px;cursor:pointer;background:{{ alignBtn1.bg }};color:{{ alignBtn1.fg }}">ยุทธศาสตร์</button>
+                      <button onClick="{{ setAlignStd }}" style="height:30px;padding:0 12px;border:0;border-left:1px solid #C9D2DE;font-size:12.5px;cursor:pointer;background:{{ alignBtn2.bg }};color:{{ alignBtn2.fg }}">มาตรฐานการอาชีวศึกษา</button>
+                    </div>
+                  </div>
+                  <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px">
+                    <sc-for list="{{ alignRows }}" as="a" hint-placeholder-count="5">
+                      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 72px;gap:12px;align-items:center;font-size:13px">
+                        <span style="line-height:1.4">{{ a.label }}</span>
+                        <div style="height:10px;border-radius:3px;background:#EEF1F5;overflow:hidden"><div style="width:{{ a.w }};height:100%;background:#1E4C9A"></div></div>
+                        <span style="text-align:right;font-weight:500">{{ a.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #EDF0F5">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">รายการล่าสุดในสมุดบัญชี</h3>
+                    <a onClick="{{ goLedger }}" style="font-size:12.5px;cursor:pointer">เปิดสมุดบัญชี</a>
+                  </div>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ recentLedger }}" as="l" hint-placeholder-count="5">
+                      <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 18px;border-bottom:1px solid #EEF1F5">
+                        <span style="width:8px;height:8px;border-radius:2px;background:{{ l.color }}"></span>
+                        <div style="min-width:0">
+                          <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.type }} · {{ l.flow }}</div>
+                          <div style="font-size:11.5px;color:#5C6880;font-family:'IBM Plex Mono',monospace">{{ l.id }} · {{ l.ref }}</div>
+                        </div>
+                        <span style="font-size:13px;font-weight:600;white-space:nowrap">{{ l.amtS }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+<!--/PAGE:DASHBOARD-->
+
+<!--PAGE:PROJECTS-->
+      <sc-if value="{{ isProjects }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:12.5px;color:#6A7689">โครงการ</div>
+              <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;color:#0F2245">โครงการทั้งหมด</h1>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">
+                <svg width="16" height="16" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>ส่งออก Excel
+              </button>
+              <button style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">+ เสนอโครงการใหม่</button>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid #EDF0F5">
+              <span style="font-size:12.5px;color:#5C6880;margin-right:4px">มุมมองที่บันทึกไว้</span>
+              <sc-for list="{{ views }}" as="v" hint-placeholder-count="5">
+                <button onClick="{{ v.pick }}" style="height:30px;padding:0 12px;border-radius:15px;font-size:12.5px;cursor:pointer;border:1px solid {{ v.bd }};background:{{ v.bg }};color:{{ v.fg }};font-weight:{{ v.fw }}">{{ v.label }} · {{ v.n }}</button>
+              </sc-for>
+              <button style="height:30px;padding:0 10px;border:1px dashed #C9D2DE;border-radius:15px;background:#fff;color:#1D4E9E;font-size:12.5px;cursor:pointer">+ บันทึกมุมมองนี้</button>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px">
+              <div style="flex:1 1 260px;max-width:360px;height:36px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;color:#6A7689">
+                <svg width="16" height="16" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+                <input value="{{ q }}" onChange="{{ onQ }}" placeholder="ค้นหารหัสหรือชื่อโครงการ" style="flex:1;min-width:0;border:0;outline:none;font-size:13.5px;color:#18233A">
+              </div>
+              <select value="{{ stFilter }}" onChange="{{ onSt }}" style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff">
+                <option value="all">ทุกสถานะ</option>
+                <option value="submitted">อยู่ระหว่างเสนอ</option>
+                <option value="returned">ส่งกลับแก้ไข</option>
+                <option value="waitlisted">รอเงินเพิ่ม</option>
+                <option value="approved">อนุมัติในแผน</option>
+                <option value="in_progress">กำลังดำเนินการ</option>
+                <option value="awaiting_report">รอรายงานผล</option>
+                <option value="closed">ปิดโครงการ</option>
+                <option value="rejected">ไม่อนุมัติ</option>
+              </select>
+              <select style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>ทุกแหล่งเงิน</option><option>เงินงบประมาณ</option><option>เงินอุดหนุน</option><option>เงินรายได้สถานศึกษา</option><option>เงินบริจาค</option></select>
+              <select style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>ทุกไตรมาส</option><option>ไตรมาส 1 (ต.ค.–ธ.ค.)</option><option>ไตรมาส 2 (ม.ค.–มี.ค.)</option><option>ไตรมาส 3 (เม.ย.–มิ.ย.)</option><option>ไตรมาส 4 (ก.ค.–ก.ย.)</option></select>
+              <div style="flex:1"></div>
+              <span style="font-size:12.5px;color:#5C6880">ผลรวมที่แสดง: ขอ <b style="color:#18233A">{{ pSum.req }}</b> · อนุมัติ <b style="color:#18233A">{{ pSum.app }}</b> · จ่ายจริง <b style="color:#18233A">{{ pSum.paid }}</b></span>
+            </div>
+            <div style="overflow-x:auto;border-top:1px solid #E1E6EE">
+              <table style="width:100%;border-collapse:collapse;min-width:1080px">
+                <thead><tr>
+                  <th style="text-align:left;padding:10px 12px 10px 16px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">รหัส</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ชื่อโครงการ</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">หน่วยงาน</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">แหล่งเงิน</th>
+                  <th style="text-align:right;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ขอ</th>
+                  <th style="text-align:right;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">อนุมัติ</th>
+                  <th style="text-align:right;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">จ่ายจริง</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">ไตรมาสที่วางแผน</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">สถานะ</th>
+                  <th style="text-align:left;padding:10px 16px 10px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">สัญญาณไฟ</th>
+                </tr></thead>
+                <tbody>
+                  <sc-for list="{{ plist }}" as="p" hint-placeholder-count="10">
+                    <tr onClick="{{ p.open }}" style="cursor:{{ p.cursor }}" style-hover="background:#F7F9FC">
+                      <td style="padding:9px 12px 9px 16px;border-bottom:1px solid #EEF1F5;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#33415A;white-space:nowrap">{{ p.code }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;font-weight:500;color:{{ p.nameColor }};line-height:1.4">{{ p.name }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;color:#3A4659">{{ p.unit }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:{{ p.fc }}"></span>{{ p.fs }}</span></td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;white-space:nowrap">{{ p.reqS }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;white-space:nowrap;font-weight:500">{{ p.appS }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;white-space:nowrap">{{ p.paidS }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;white-space:nowrap">{{ p.q }}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ p.st.bg }};color:{{ p.st.fg }}">{{ p.st.label }}</span></td>
+                      <td style="padding:9px 16px 9px 12px;border-bottom:1px solid #EEF1F5;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#3A4659"><span style="width:9px;height:9px;border-radius:50%;background:{{ p.lt.color }}"></span>{{ p.lt.label }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <sc-if value="{{ plistEmpty }}">
+              <div style="padding:40px 16px;text-align:center;font-size:13.5px;color:#5C6880">ไม่พบโครงการตามเงื่อนไข · <a onClick="{{ clearFilters }}" style="cursor:pointer">ล้างตัวกรอง</a></div>
+            </sc-if>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;font-size:12.5px;color:#5C6880">
+              <span>แสดง {{ plistCount }} รายการจาก 128 โครงการ</span>
+              <div style="display:flex;gap:4px">
+                <span style="width:30px;height:30px;border-radius:6px;background:#0F2C5C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600">1</span>
+                <span style="width:30px;height:30px;border-radius:6px;border:1px solid #E1E6EE;display:flex;align-items:center;justify-content:center">2</span>
+                <span style="width:30px;height:30px;border-radius:6px;border:1px solid #E1E6EE;display:flex;align-items:center;justify-content:center">3</span>
+                <span style="height:30px;padding:0 6px;display:flex;align-items:center">…</span>
+                <span style="width:30px;height:30px;border-radius:6px;border:1px solid #E1E6EE;display:flex;align-items:center;justify-content:center">9</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+<!--/PAGE:PROJECTS-->
+
+<!--PAGE:DETAIL-->
+      <sc-if value="{{ isDetail }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:12.5px;color:#6A7689;display:flex;gap:6px;align-items:center"><a onClick="{{ goProjects }}" style="cursor:pointer">โครงการทั้งหมด</a><span>/</span><span>P70-014</span></div>
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04);padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start">
+              <div style="display:flex;flex-direction:column;gap:8px;min-width:0;flex:1 1 420px">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:2px 8px;border-radius:4px;background:#EEF1F5;color:#33415A">P70-014</span>
+                  <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:500;background:#0F2C5C;color:#fff">กำลังดำเนินการ</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#3A4659"><span style="width:9px;height:9px;border-radius:50%;background:#1F9D55"></span>ตามแผน</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#3A4659"><span style="width:9px;height:9px;border-radius:2px;background:#0E9494"></span>เงินอุดหนุน</span>
+                </div>
+                <h1 style="margin:0;font-size:22px;font-weight:600;color:#0F2245;line-height:1.35;text-wrap:pretty">พัฒนาทักษะวิชาชีพช่างยนต์สู่มาตรฐานฝีมือแรงงาน</h1>
+                <div style="font-size:13px;color:#5C6880;display:flex;gap:6px 16px;flex-wrap:wrap">
+                  <span>แผนกวิชาช่างยนต์ · ฝ่ายวิชาการ</span>
+                  <span>ผู้รับผิดชอบ: ครูสมชาย แก้วมณี, ครูอนุชา ศรีทอง</span>
+                  <span>ไตรมาส 2–3 (ม.ค.–มิ.ย.)</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button onClick="{{ goReplan }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">ขอปรับแผน</button>
+                <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">รายงานผล</button>
+                <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">ขออนุญาตดำเนินโครงการ</button>
+              </div>
+            </div>
+            <div style="border-top:1px solid #EDF0F5;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+                <span style="font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:3px;background:#0E9494"></span>เงินอุดหนุน · เส้นทางเงิน 4 ระดับ</span>
+                <span style="font-size:12px;color:#5C6880">ทุกยอดคลิกเพื่อดูรายการในสมุดบัญชี</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+                <sc-for list="{{ levels }}" as="lv" hint-placeholder-count="4">
+                  <a onClick="{{ goLedger }}" style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:1px solid #E1E6EE;border-radius:8px;color:#18233A;cursor:pointer;text-decoration:none" style-hover="border-color:#9FB3D1;background:#F7F9FC">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#5C6880"><span style="width:10px;height:10px;border-radius:2px;background:{{ lv.sw }}"></span>{{ lv.n }}. {{ lv.label }}</span>
+                    <span style="font-size:17px;font-weight:600">{{ lv.vS }}</span>
+                    <span style="font-size:11.5px;color:#5C6880">{{ lv.note }}</span>
+                  </a>
+                </sc-for>
+              </div>
+              <div style="position:relative;height:18px;border-radius:4px;overflow:hidden;background:#D2EEEE">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:70%;background:#0E9494;opacity:.35"></div>
+                <div style="position:absolute;left:0;top:0;bottom:0;width:48.27%;background:#0E9494;opacity:.65"></div>
+                <div style="position:absolute;left:0;top:0;bottom:0;width:32.17%;background:#0B7777"></div>
+              </div>
+              <div style="display:flex;gap:6px 20px;flex-wrap:wrap;font-size:12.5px;color:#5C6880">
+                <span>ยังไม่ขออนุญาต <b style="color:#18233A">45,000.00</b></span>
+                <span>อนุญาตแล้วยังไม่ผูกพัน <b style="color:#18233A">32,600.00</b></span>
+                <span>ผูกพันรอจ่าย <b style="color:#18233A">24,150.00</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:2px;border-bottom:1px solid #D5DBE4;overflow-x:auto">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.pick }}" style="height:42px;padding:0 16px;border:0;background:transparent;font-size:13.5px;cursor:pointer;white-space:nowrap;margin-bottom:-1px;border-bottom:2px solid {{ t.bd }};color:{{ t.fg }};font-weight:{{ t.fw }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ tabOverview }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start">
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+                <div>
+                  <h3 style="margin:0 0 6px;font-size:14px;font-weight:600;color:#0F2245">หลักการและเหตุผล</h3>
+                  <p style="margin:0;font-size:13.5px;line-height:1.7;color:#33415A;text-wrap:pretty">ผู้เรียนระดับ ปวช.3 แผนกวิชาช่างยนต์ต้องผ่านการทดสอบมาตรฐานฝีมือแรงงานแห่งชาติ สาขาช่างเครื่องยนต์ดีเซล ระดับ 1 ก่อนสำเร็จการศึกษา ตามเกณฑ์มาตรฐานการอาชีวศึกษา ด้านที่ 1 โครงการนี้จัดอบรมเตรียมความพร้อมและสนับสนุนค่าธรรมเนียมการทดสอบ</p>
+                </div>
+                <div>
+                  <h3 style="margin:0 0 6px;font-size:14px;font-weight:600;color:#0F2245">วัตถุประสงค์</h3>
+                  <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:1.8;color:#33415A">
+                    <li>เพื่อพัฒนาทักษะผู้เรียนให้ผ่านมาตรฐานฝีมือแรงงาน</li>
+                    <li>เพื่อเพิ่มโอกาสการมีงานทำของผู้สำเร็จการศึกษา</li>
+                    <li>เพื่อยกระดับห้องปฏิบัติการเครื่องยนต์ให้พร้อมเป็นศูนย์ทดสอบ</li>
+                  </ol>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                    <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ตัวชี้วัด</h3>
+                    <span style="font-size:12px;color:#5C6880">ความก้าวหน้า 55% · อัปเดต 10 ม.ค. 2570</span>
+                  </div>
+                  <table style="width:100%;border-collapse:collapse">
+                    <thead><tr>
+                      <th style="text-align:left;padding:8px 10px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ตัวชี้วัด</th>
+                      <th style="text-align:right;padding:8px 10px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">เป้าหมาย</th>
+                      <th style="text-align:right;padding:8px 10px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ผลล่าสุด</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px">ผู้เรียนเข้าร่วมอบรมเตรียมความพร้อม</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right">40 คน</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;font-weight:600">38 คน</td></tr>
+                      <tr><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px">ผู้เรียนผ่านการทดสอบมาตรฐาน</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right">≥ 80%</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;color:#5C6880">ทดสอบ มี.ค. 2570</td></tr>
+                      <tr><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px">ความพึงพอใจของผู้เข้าร่วม</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right">≥ 4.00</td><td style="padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;font-weight:600">4.32</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:0">
+                <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;color:#0F2245">ข้อมูลโครงการ</h3>
+                <sc-for list="{{ facts }}" as="fa" hint-placeholder-count="7">
+                  <div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid #EEF1F5;font-size:13px">
+                    <span style="color:#5C6880">{{ fa.k }}</span><span style="line-height:1.5">{{ fa.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabBudget }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start">
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:18px 20px">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+                  <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">แผนใช้เงินรายเดือนเทียบจ่ายจริง</h3>
+                  <div style="display:flex;gap:12px;font-size:11.5px;color:#5C6880">
+                    <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:10px;border:1.5px dashed #8A96A8;border-radius:2px"></span>แผน</span>
+                    <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:10px;background:#0E9494;border-radius:2px"></span>จ่ายจริง</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:150px;border-bottom:1px solid #D5DBE4">
+                  <sc-for list="{{ months }}" as="m" hint-placeholder-count="12">
+                    <div style="position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center">
+                      <div style="position:absolute;bottom:0;left:10%;right:10%;height:{{ m.ph }};border:1.5px dashed #8A96A8;border-bottom:0;border-radius:3px 3px 0 0"></div>
+                      <div style="position:relative;width:56%;height:{{ m.ah }};background:#0E9494;border-radius:2px 2px 0 0"></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin-top:6px">
+                  <sc-for list="{{ months }}" as="m" hint-placeholder-count="12"><span style="font-size:11px;color:#6A7689;text-align:center">{{ m.label }}</span></sc-for>
+                </div>
+                <div style="margin-top:12px;font-size:12.5px;color:#5C6880">แผนถึง ม.ค. 55,000.00 · จ่ายจริง 48,250.00 · ต่ำกว่าแผน 6,750.00</div>
+              </div>
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;overflow:hidden">
+                <div style="padding:14px 18px;border-bottom:1px solid #EDF0F5"><h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">รายการค่าใช้จ่าย</h3></div>
+                <div style="overflow-x:auto">
+                  <table style="width:100%;border-collapse:collapse;min-width:480px">
+                    <thead><tr>
+                      <th style="text-align:left;padding:9px 12px 9px 18px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">หมวด · รายการ</th>
+                      <th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">จำนวน</th>
+                      <th style="text-align:right;padding:9px 18px 9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">รวม (บาท)</th>
+                    </tr></thead>
+                    <tbody>
+                      <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+                        <tr>
+                          <td style="padding:9px 12px 9px 18px;border-bottom:1px solid #EEF1F5;font-size:13px"><div style="font-size:11.5px;color:#5C6880">{{ it.cat }}</div>{{ it.name }}</td>
+                          <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;white-space:nowrap">{{ it.qty }}</td>
+                          <td style="padding:9px 18px 9px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;font-weight:500">{{ it.total }}</td>
+                        </tr>
+                      </sc-for>
+                      <tr><td style="padding:10px 12px 10px 18px;font-size:13.5px;font-weight:600" colspan="2">รวมทั้งสิ้น</td><td style="padding:10px 18px 10px 12px;font-size:14px;text-align:right;font-weight:700;color:#0F2245">150,000.00</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabApproval }}">
+            <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:20px 22px;max-width:880px">
+              <sc-for list="{{ timeline }}" as="tl" hint-placeholder-count="8">
+                <sc-if value="{{ tl.isGroup }}">
+                  <div style="font-size:12px;font-weight:600;letter-spacing:.03em;color:#5C6880;padding:4px 0 12px">{{ tl.label }}</div>
+                </sc-if>
+                <sc-if value="{{ tl.isStep }}">
+                  <div style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px">
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                      <span style="width:12px;height:12px;border-radius:50%;margin-top:5px;flex-shrink:0;background:{{ tl.dot }};box-shadow:0 0 0 4px {{ tl.ring }}"></span>
+                      <span style="flex:1;width:2px;background:#E1E6EE;margin-top:6px"></span>
+                    </div>
+                    <div style="padding-bottom:18px;display:flex;flex-direction:column;gap:4px">
+                      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                          <span style="font-size:14px;font-weight:600">{{ tl.act }}</span>
+                          <span style="display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:4px;font-size:11.5px;font-weight:600;background:{{ tl.bg }};color:{{ tl.fg }}">{{ tl.result }}</span>
+                        </div>
+                        <span style="font-size:12px;color:#5C6880">{{ tl.at }}</span>
+                      </div>
+                      <div style="font-size:13px;color:#3A4659">{{ tl.who }} · <span style="color:#5C6880">{{ tl.role }}</span></div>
+                      <sc-if value="{{ tl.hasNote }}"><div style="font-size:13px;color:#33415A;background:#F6F8FB;border-radius:6px;padding:8px 10px;margin-top:2px">“{{ tl.note }}”</div></sc-if>
+                      <sc-if value="{{ tl.hasRef }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5C6880">อ้างอิง {{ tl.ref }}</span></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabFlow }}">
+            <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:13px;color:#5C6880">ทุกบาทของโครงการนี้ย้อนกลับไปยังกองเงินต้นทาง มติ และคำขอปรับแผนได้</div>
+              <div style="display:grid;grid-template-columns:minmax(220px,1fr) 32px minmax(200px,.8fr) 32px minmax(260px,1.2fr);gap:10px;align-items:center;overflow-x:auto">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:12px;font-weight:600;color:#5C6880">ที่มา</div>
+                  <sc-for list="{{ flowIn }}" as="fi" hint-placeholder-count="2">
+                    <div style="border:1px solid #E1E6EE;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px">
+                      <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:9px;height:9px;border-radius:2px;background:{{ fi.color }}"></span>{{ fi.label }}</span>
+                      <span style="font-size:15px;font-weight:600">{{ fi.amt }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5C6880">{{ fi.ref }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <svg width="32" height="24" viewBox="0 0 32 24" style="fill:none;stroke:#8A96A8;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M2 12h26M21 5l7 7-7 7"></path></svg>
+                <div style="border:2px solid #0F2C5C;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:4px;background:#F5F8FD">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#33415A">P70-014</span>
+                  <span style="font-size:13.5px;font-weight:600;line-height:1.4">พัฒนาทักษะวิชาชีพช่างยนต์ฯ</span>
+                  <span style="font-size:18px;font-weight:700;color:#0F2245">150,000.00</span>
+                  <span style="font-size:11.5px;color:#5C6880">วงเงินอนุมัติรวม</span>
+                </div>
+                <svg width="32" height="24" viewBox="0 0 32 24" style="fill:none;stroke:#8A96A8;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"><path d="M2 12h26M21 5l7 7-7 7"></path></svg>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:12px;font-weight:600;color:#5C6880">ปลายทาง</div>
+                  <sc-for list="{{ flowOut }}" as="fo" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;border:1px solid #E1E6EE;border-radius:8px;padding:9px 12px">
+                      <span style="font-size:13px;font-weight:500">{{ fo.label }}</span>
+                      <span style="font-size:13.5px;font-weight:600;text-align:right">{{ fo.amt }}</span>
+                      <div style="grid-column:1 / -1;height:5px;border-radius:3px;background:#EEF1F5;overflow:hidden"><div style="height:100%;width:{{ fo.w }};background:{{ fo.color }}"></div></div>
+                      <span style="grid-column:1 / -1;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5C6880">{{ fo.ref }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tabHistory }}">
+            <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;overflow:hidden">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+                <span style="font-size:13px;color:#5C6880">บันทึกการเปลี่ยนแปลงทั้งหมด · แก้ไขหรือลบไม่ได้</span>
+                <button style="height:32px;padding:0 12px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:12.5px;cursor:pointer">ส่งออก CSV</button>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;min-width:820px">
+                  <thead><tr>
+                    <th style="text-align:left;padding:9px 12px 9px 18px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">เวลา</th>
+                    <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ผู้ดำเนินการ</th>
+                    <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">การกระทำ</th>
+                    <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">รายละเอียด</th>
+                    <th style="text-align:left;padding:9px 18px 9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">อ้างอิง</th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ audit }}" as="au" hint-placeholder-count="7">
+                      <tr>
+                        <td style="padding:9px 12px 9px 18px;border-bottom:1px solid #EEF1F5;font-size:12.5px;white-space:nowrap;color:#3A4659">{{ au.at }}</td>
+                        <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;white-space:nowrap">{{ au.who }}</td>
+                        <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;font-weight:500">{{ au.act }}</td>
+                        <td style="padding:9px 12px;border-bottom:1px solid #EEF1F5;font-size:13px;color:#33415A">{{ au.detail }}</td>
+                        <td style="padding:9px 18px 9px 12px;border-bottom:1px solid #EEF1F5;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1D4E9E;white-space:nowrap">{{ au.ref }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+<!--/PAGE:DETAIL-->
+
+<!--PAGE:SCENARIO-->
+      <sc-if value="{{ isScenario }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="position:sticky;top:64px;z-index:15;background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 4px 12px rgba(16,34,68,.06);padding:14px 18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:12px;color:#6A7689">พิจารณางบประมาณ · รอบเสนอโครงการปีงบประมาณ 2570</span>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <select value="{{ scnName }}" onChange="{{ onScn }}" style="height:34px;padding:0 8px;border:1px solid #C9D2DE;border-radius:6px;font-size:15px;font-weight:600;color:#0F2245;background:#fff">
+                    <option value="A">ชุด A · เรียงตามคะแนน</option>
+                    <option value="B">ชุด B · ประหยัด 10%</option>
+                    <option value="C">ชุด C · เน้นผลต่อผู้เรียน</option>
+                  </select>
+                  <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:500;background:#EDEFF3;color:#465166">ร่าง</span>
+                </div>
+              </div>
+              <div style="flex:1"></div>
+              <span style="font-size:12px;color:#5C6880">{{ histLabel }}</span>
+              <div style="display:flex;border:1px solid #C9D2DE;border-radius:6px;overflow:hidden">
+                <button onClick="{{ undo }}" title="ย้อนกลับ (Ctrl+Z)" style="height:34px;padding:0 12px;border:0;background:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;color:{{ undoC }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>ย้อน
+                </button>
+                <button onClick="{{ redo }}" title="ทำซ้ำ (Ctrl+Shift+Z)" style="height:34px;padding:0 12px;border:0;border-left:1px solid #C9D2DE;background:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;color:{{ redoC }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path></svg>ทำซ้ำ
+                </button>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+              <sc-for list="{{ fundStatus }}" as="fs" hint-placeholder-count="4">
+                <div style="border:1px solid {{ fs.bd }};background:{{ fs.bg }};border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:9px;height:9px;border-radius:2px;background:{{ fs.color }}"></span>{{ fs.name }}</span>
+                    <span style="font-size:11.5px;color:#5C6880">{{ fs.capNote }}</span>
+                  </div>
+                  <div style="height:6px;border-radius:3px;background:#E6EAF0;overflow:hidden"><div style="height:100%;width:{{ fs.w }};background:{{ fs.barC }}"></div></div>
+                  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;font-size:11.5px;color:#5C6880">
+                    <div>จัดสรรได้<div style="font-size:12.5px;color:#18233A;font-weight:500">{{ fs.capS }}</div></div>
+                    <div>ในชุดนี้<div style="font-size:12.5px;color:#18233A;font-weight:500">{{ fs.usedS }}</div></div>
+                    <div style="text-align:right">คงเหลือ<div style="font-size:12.5px;font-weight:700;color:{{ fs.remC }}">{{ fs.remS }}</div></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:1 1 700px;min-width:0;background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap;min-height:58px">
+                <sc-if value="{{ noSel }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column">
+                    <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">โครงการในรอบพิจารณา ({{ scnCount }})</h3>
+                    <span style="font-size:12px;color:#5C6880">เรียงตามคะแนนถ่วงน้ำหนัก · คลิกชื่อเพื่อดูเหตุจำเป็นและผลกระทบ</span>
+                  </div>
+                  <span style="font-size:12.5px;color:#5C6880">ผ่าน <b style="color:#18233A">{{ passCount }}</b> โครงการ · ให้รวม <b style="color:#18233A">{{ grantedTotal }}</b> จากที่ขอ {{ reqTotal }}</span>
+                </sc-if>
+                <sc-if value="{{ hasSel }}">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;padding:4px 8px;background:#EEF3FB;border-radius:6px">
+                    <span style="font-size:13px;font-weight:600;color:#0F2245">เลือก {{ selCount }} รายการ</span>
+                    <span style="font-size:13px;color:#5C6880">ตั้งผลพิจารณาเป็น</span>
+                    <select value="{{ bulk }}" onChange="{{ onBulk }}" style="height:32px;padding:0 8px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff">
+                      <option value="full">อนุมัติเต็ม</option><option value="partial">อนุมัติบางส่วน</option><option value="phase1">ระยะที่ 1</option><option value="wait">รอเงินเพิ่ม</option><option value="reject">ไม่อนุมัติ</option>
+                    </select>
+                    <button onClick="{{ applyBulk }}" style="height:32px;padding:0 12px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13px;cursor:pointer">นำไปใช้</button>
+                    <div style="flex:1"></div>
+                    <button onClick="{{ clearSel }}" style="height:32px;padding:0 10px;border:0;background:transparent;color:#1D4E9E;font-size:13px;cursor:pointer">ยกเลิกการเลือก</button>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;min-width:960px">
+                  <thead><tr>
+                    <th style="padding:9px 8px 9px 14px;background:#F6F8FB;border-bottom:1px solid #E1E6EE;width:30px"><input type="checkbox" checked="{{ allSel }}" onChange="{{ toggleAll }}"></th>
+                    <th style="text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">#</th>
+                    <th style="text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">คะแนน</th>
+                    <th style="text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">โครงการ · หน่วยงาน</th>
+                    <th style="text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ความจำเป็น</th>
+                    <th style="text-align:right;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ยอดขอ</th>
+                    <th style="text-align:right;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">ขั้นต่ำ</th>
+                    <th style="text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ผลพิจารณา</th>
+                    <th style="text-align:right;padding:9px 8px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">วงเงินที่ให้</th>
+                    <th style="padding:9px 14px 9px 8px;background:#F6F8FB;border-bottom:1px solid #E1E6EE"></th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ srows }}" as="r" hint-placeholder-count="12">
+                      <tr style="background:{{ r.rowBg }};opacity:{{ r.op }}">
+                        <td style="padding:6px 8px 6px 14px;border-bottom:1px solid #EEF1F5"><input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.onSel }}"></td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5;font-size:12.5px;color:#5C6880">{{ r.rank }}</td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5;width:84px">
+                          <div style="font-size:13.5px;font-weight:600">{{ r.scoreS }}</div>
+                          <div style="height:3px;border-radius:2px;background:#E6EAF0;margin-top:3px"><div style="height:100%;width:{{ r.scoreW }};background:#1E4C9A;border-radius:2px"></div></div>
+                        </td>
+                        <td onClick="{{ r.open }}" style="padding:6px 8px;border-bottom:1px solid #EEF1F5;cursor:pointer;min-width:240px">
+                          <div style="font-size:13.5px;font-weight:500;color:#1D4E9E;line-height:1.35;text-decoration:{{ r.tdec }}">{{ r.name }}</div>
+                          <div style="font-size:11.5px;color:#5C6880;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:1px"><span style="font-family:'IBM Plex Mono',monospace;white-space:nowrap">{{ r.code }}</span><span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:2px;background:{{ r.fc }}"></span>{{ r.fs }}</span><span>· {{ r.unit }}</span></div>
+                        </td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5"><span style="display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:4px;font-size:11.5px;font-weight:500;white-space:nowrap;background:{{ r.nb }};color:{{ r.nf }}">{{ r.nl }}</span></td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;white-space:nowrap;text-decoration:{{ r.tdec }}">{{ r.reqS }}</td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5;font-size:13px;text-align:right;white-space:nowrap;color:#5C6880">{{ r.minS }}</td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5">
+                          <select value="{{ r.d }}" onChange="{{ r.onDec }}" disabled="{{ r.l }}" style="height:30px;padding:0 6px;border:1px solid {{ r.dbd }};border-radius:6px;font-size:12.5px;background:{{ r.dbg }};color:{{ r.dfg }};font-weight:500;width:132px">
+                            <option value="full">อนุมัติเต็ม</option><option value="partial">อนุมัติบางส่วน</option><option value="phase1">ระยะที่ 1</option><option value="wait">รอเงินเพิ่ม</option><option value="reject">ไม่อนุมัติ</option>
+                          </select>
+                        </td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #EEF1F5;text-align:right;white-space:nowrap">
+                          <sc-if value="{{ r.isPartial }}">
+                            <input type="number" step="1000" value="{{ r.g }}" onChange="{{ r.onG }}" disabled="{{ r.l }}" style="width:112px;height:30px;padding:0 8px;border:1px solid #9FB3D1;border-radius:6px;font-size:13px;text-align:right;background:#F5F8FD">
+                          </sc-if>
+                          <sc-if value="{{ r.notPartial }}"><span style="font-size:13.5px;font-weight:600;text-decoration:{{ r.tdec }}">{{ r.gS }}</span></sc-if>
+                          <sc-if value="{{ r.belowMin }}"><div style="font-size:11px;color:#A84A0C;margin-top:2px">ต่ำกว่าวงเงินขั้นต่ำ</div></sc-if>
+                        </td>
+                        <td style="padding:6px 14px 6px 8px;border-bottom:1px solid #EEF1F5">
+                          <button onClick="{{ r.onLock }}" title="{{ r.lockT }}" style="width:30px;height:30px;border-radius:6px;border:1px solid {{ r.lbd }};background:{{ r.lbg }};color:{{ r.lfg }};display:flex;align-items:center;justify-content:center;cursor:pointer">
+                            <svg width="15" height="15" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="{{ r.lockI }}"></path></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="flex:1 1 320px;max-width:400px;display:flex;flex-direction:column;gap:16px">
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">น้ำหนักคะแนน</h3>
+                  <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:600;background:{{ wBadge.bg }};color:{{ wBadge.fg }}">รวม {{ wSum }} / 100</span>
+                </div>
+                <sc-for list="{{ wRows }}" as="wr" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:4px 10px;align-items:center">
+                    <span style="font-size:12.5px;color:#33415A">{{ wr.label }}</span>
+                    <span style="font-size:13px;font-weight:600;text-align:right">{{ wr.v }}</span>
+                    <input type="range" min="0" max="60" step="5" value="{{ wr.v }}" onChange="{{ wr.on }}" style="grid-column:1 / -1;width:100%;margin:0">
+                  </div>
+                </sc-for>
+                <sc-if value="{{ wBad }}"><div style="font-size:12px;color:#B42323">น้ำหนักรวมต้องเท่ากับ 100 · ตารางยังเรียงตามสัดส่วนชั่วคราว</div></sc-if>
+                <button onClick="{{ resetW }}" style="align-self:flex-start;height:28px;padding:0;border:0;background:transparent;color:#1D4E9E;font-size:12.5px;cursor:pointer">คืนค่าเริ่มต้น (35/25/15/15/10)</button>
+              </div>
+
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">เครื่องมือจัดสรร</h3>
+                <button onClick="{{ doAutofill }}" style="height:38px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">เติมอัตโนมัติตามคะแนน</button>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span style="font-size:13px;flex:1">ลดเท่ากันทุกโครงการ</span>
+                  <input type="number" min="1" max="50" value="{{ cut }}" onChange="{{ onCut }}" style="width:58px;height:34px;padding:0 8px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;text-align:right">
+                  <span style="font-size:13px">%</span>
+                  <button onClick="{{ applyCut }}" style="height:34px;padding:0 12px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13px;cursor:pointer">ลด</button>
+                </div>
+                <div style="font-size:11.5px;color:#5C6880">โครงการที่ล็อกไว้จะไม่ถูกเปลี่ยน</div>
+              </div>
+
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ทดสอบรายรับลดลง</h3>
+                  <span style="font-size:15px;font-weight:700;color:{{ dropC }}">−{{ drop }}%</span>
+                </div>
+                <input type="range" min="0" max="20" step="1" value="{{ drop }}" onChange="{{ onDrop }}" style="width:100%;margin:0">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#6A7689"><span>0%</span><span>10%</span><span>20%</span></div>
+                <div style="font-size:12.5px;line-height:1.5;padding:8px 10px;border-radius:6px;background:{{ dropBox.bg }};color:{{ dropBox.fg }}">{{ dropText }}</div>
+              </div>
+
+              <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">การกระจายเงินตามฝ่าย</h3>
+                <div style="display:flex;gap:12px;font-size:11.5px;color:#5C6880">
+                  <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:#1E4C9A"></span>สัดส่วนเงินในชุดนี้</span>
+                  <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:4px;border-radius:2px;background:#9AA6B8"></span>สัดส่วนผู้เรียน</span>
+                </div>
+                <sc-for list="{{ distRows }}" as="dr" hint-placeholder-count="4">
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px"><span>{{ dr.label }}</span><span style="color:#5C6880"><b style="color:#18233A">{{ dr.aS }}</b> / {{ dr.lS }}</span></div>
+                    <div style="height:8px;border-radius:2px;background:#EEF1F5;overflow:hidden"><div style="height:100%;width:{{ dr.aW }};background:#1E4C9A"></div></div>
+                    <div style="height:4px;border-radius:2px;background:#EEF1F5;overflow:hidden"><div style="height:100%;width:{{ dr.lW }};background:#9AA6B8"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12.5px;color:#5C6880">บันทึกอัตโนมัติ · ทุกการเปลี่ยนแปลงย้อนกลับได้</span>
+            <div style="flex:1"></div>
+            <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;cursor:pointer" style-hover="background:#F3F6FA">ทำสำเนาชุดนี้</button>
+            <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;cursor:pointer" style-hover="background:#F3F6FA">เทียบชุด</button>
+            <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">ส่งออกเอกสารเสนอที่ประชุม</button>
+          </div>
+
+          <sc-if value="{{ drawerOpen }}">
+            <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(11,31,63,.3);z-index:50"></div>
+            <aside style="position:fixed;top:0;right:0;bottom:0;width:min(480px,100vw);background:#fff;z-index:51;box-shadow:-8px 0 24px rgba(11,31,63,.16);overflow-y:auto;display:flex;flex-direction:column">
+              <div style="padding:16px 20px;border-bottom:1px solid #EDF0F5;display:flex;gap:12px;align-items:flex-start;position:sticky;top:0;background:#fff">
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5C6880">{{ dw.code }} · {{ dw.unit }}</span>
+                  <span style="font-size:17px;font-weight:600;color:#0F2245;line-height:1.4">{{ dw.name }}</span>
+                  <div style="display:flex;gap:8px;align-items:center;margin-top:2px">
+                    <span style="display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:4px;font-size:11.5px;font-weight:500;background:{{ dw.nb }};color:{{ dw.nf }}">{{ dw.nl }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px"><span style="width:9px;height:9px;border-radius:2px;background:{{ dw.fc }}"></span>{{ dw.fn }}</span>
+                  </div>
+                </div>
+                <button onClick="{{ closeDrawer }}" title="ปิด (Esc)" style="width:32px;height:32px;border:0;border-radius:6px;background:#F3F6FA;color:#33415A;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                  <svg width="16" height="16" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              <div style="padding:16px 20px;display:flex;flex-direction:column;gap:18px">
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+                  <div style="padding:10px;border:1px solid #E1E6EE;border-radius:8px"><div style="font-size:11.5px;color:#5C6880">ยอดขอ</div><div style="font-size:14px;font-weight:600">{{ dw.reqS }}</div></div>
+                  <div style="padding:10px;border:1px solid #E1E6EE;border-radius:8px"><div style="font-size:11.5px;color:#5C6880">วงเงินขั้นต่ำ</div><div style="font-size:14px;font-weight:600">{{ dw.minS }}</div></div>
+                  <div style="padding:10px;border:1px solid #9FB3D1;border-radius:8px;background:#F5F8FD"><div style="font-size:11.5px;color:#5C6880">ให้ในชุดนี้</div><div style="font-size:14px;font-weight:600;color:#0F2245">{{ dw.gS }}</div></div>
+                </div>
+                <div><div style="font-size:12.5px;font-weight:600;color:#5C6880;margin-bottom:4px">เหตุจำเป็น</div><div style="font-size:13.5px;line-height:1.65;text-wrap:pretty">{{ dw.why }}</div></div>
+                <div style="padding:10px 12px;border-radius:8px;background:#FFF3E8;border:1px solid #F5C9A0"><div style="font-size:12.5px;font-weight:600;color:#8A3A06;margin-bottom:4px">ผลกระทบหากไม่ได้รับอนุมัติ</div><div style="font-size:13.5px;line-height:1.6;color:#5A2604">{{ dw.impact }}</div></div>
+                <div>
+                  <div style="font-size:12.5px;font-weight:600;color:#5C6880;margin-bottom:6px">คะแนน {{ dw.scoreS }} · ที่มาของคะแนน</div>
+                  <sc-for list="{{ dw.crit }}" as="cr" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px 64px;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px solid #EEF1F5">
+                      <span>{{ cr.label }}</span><span style="text-align:right;color:#5C6880">{{ cr.v }}</span><span style="text-align:right;font-weight:500">× {{ cr.w }}%</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div>
+                  <div style="font-size:12.5px;font-weight:600;color:#5C6880;margin-bottom:6px">งบรายการ (ตามแบบเสนอ)</div>
+                  <sc-for list="{{ dw.items }}" as="di" hint-placeholder-count="3">
+                    <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #EEF1F5"><span>{{ di.k }}</span><span style="font-weight:500">{{ di.v }}</span></div>
+                  </sc-for>
+                </div>
+                <div><div style="font-size:12.5px;font-weight:600;color:#5C6880;margin-bottom:4px">ผลปีก่อน</div><div style="font-size:13.5px">{{ dw.last }}</div></div>
+              </div>
+            </aside>
+          </sc-if>
+        </div>
+      </sc-if>
+<!--/PAGE:SCENARIO-->
+
+<!--PAGE:REPLAN-->
+      <sc-if value="{{ isReplan }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:12.5px;color:#6A7689">โครงการ / คำขอปรับแผน</div>
+              <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;color:#0F2245">สร้างคำขอปรับแผน</h1>
+              <div style="font-size:12.5px;color:#5C6880;margin-top:4px;display:flex;gap:8px;align-items:center"><span style="font-family:'IBM Plex Mono',monospace">RP70-008</span>·<span>ร่าง · บันทึกอัตโนมัติ 15 ม.ค. 2570 10:21</span></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">บันทึกร่าง</button>
+              <button onClick="{{ submitReplan }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;opacity:{{ submitOp }}" style-hover="background:#0A2148">ส่งคำขอปรับแผน</button>
+            </div>
+          </div>
+
+          <sc-if value="{{ rpSubmitted }}">
+            <div style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:8px;background:#E9F6EE;border:1px solid #A9D9BC;color:#13693A">
+              <svg width="20" height="20" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3"></path></svg>
+              <div style="font-size:13.5px"><b>ส่งคำขอ RP70-008 แล้ว</b> · ลำดับพิจารณา: หัวหน้างาน → รองผู้อำนวยการฝ่าย → งานแผนฯ → ผู้อำนวยการ</div>
+            </div>
+          </sc-if>
+
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ประเภทการปรับแผน</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+              <sc-for list="{{ rpTypes }}" as="rt" hint-placeholder-count="6">
+                <button onClick="{{ rt.pick }}" style="text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px;border:1.5px solid {{ rt.bd }};background:{{ rt.bg }}">
+                  <span style="font-size:13.5px;font-weight:600;color:#0F2245">{{ rt.label }}</span>
+                  <span style="font-size:11.5px;color:#5C6880;line-height:1.4">{{ rt.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch">
+            <div style="flex:1 1 420px;min-width:0;background:#fff;border:1px solid #E1E6EE;border-radius:10px;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #EDF0F5">
+                <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ต้นทาง · โครงการที่ให้เงิน</h3>
+                <span style="font-size:12.5px;color:#5C6880">ให้รวม <b style="color:#18233A">{{ giveTotal }}</b></span>
+              </div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <sc-for list="{{ srcRows }}" as="sr" hint-placeholder-count="2">
+                  <div style="border:1px solid {{ sr.bd }};border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;gap:8px;align-items:flex-start">
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:11.5px;color:#5C6880;display:flex;gap:6px;align-items:center"><span style="font-family:'IBM Plex Mono',monospace">{{ sr.code }}</span>·<span style="width:8px;height:8px;border-radius:2px;background:{{ sr.color }}"></span>{{ sr.fname }}</div>
+                        <div style="font-size:13.5px;font-weight:600;margin-top:2px">{{ sr.name }}</div>
+                      </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:11.5px;color:#5C6880">
+                      <div>อนุมัติ<div style="font-size:13px;color:#18233A;font-weight:500">{{ sr.appS }}</div></div>
+                      <div>{{ sr.usedLabel }}<div style="font-size:13px;color:#18233A;font-weight:500">{{ sr.usedS }}</div></div>
+                      <div>ยอดที่โอนได้<div style="font-size:13px;color:#13693A;font-weight:700">{{ sr.trS }}</div></div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <label style="font-size:12.5px;color:#33415A;flex:1;min-width:120px">จำนวนที่ให้ (บาท)</label>
+                      <input type="number" step="500" value="{{ sr.amt }}" onChange="{{ sr.on }}" style="width:150px;height:34px;padding:0 10px;border:1px solid {{ sr.ibd }};border-radius:6px;font-size:13.5px;text-align:right">
+                      <button onClick="{{ sr.all }}" style="height:34px;padding:0 10px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:12.5px;cursor:pointer">ทั้งหมด</button>
+                    </div>
+                    <sc-if value="{{ sr.err }}"><div style="font-size:12px;color:#B42323">เกินยอดที่โอนได้ {{ sr.overS }} บาท</div></sc-if>
+                    <div style="font-size:12px;color:#5C6880">{{ sr.note }}</div>
+                  </div>
+                </sc-for>
+                <button style="height:36px;border:1px dashed #C9D2DE;border-radius:8px;background:#fff;color:#1D4E9E;font-size:13px;cursor:pointer">+ เพิ่มโครงการต้นทาง</button>
+              </div>
+            </div>
+
+            <div style="flex:1 1 420px;min-width:0;background:#fff;border:1px solid #E1E6EE;border-radius:10px;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #EDF0F5">
+                <h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ปลายทาง · โครงการที่รับเงิน</h3>
+                <span style="font-size:12.5px;color:#5C6880">รับรวม <b style="color:#18233A">{{ takeTotal }}</b></span>
+              </div>
+              <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;border:1px solid #C9D2DE;border-radius:6px;overflow:hidden;align-self:flex-start">
+                  <button onClick="{{ dstExisting }}" style="height:32px;padding:0 12px;border:0;font-size:12.5px;cursor:pointer;background:{{ dm1.bg }};color:{{ dm1.fg }}">โครงการเดิม</button>
+                  <button onClick="{{ dstNew }}" style="height:32px;padding:0 12px;border:0;border-left:1px solid #C9D2DE;font-size:12.5px;cursor:pointer;background:{{ dm2.bg }};color:{{ dm2.fg }}">สร้างโครงการใหม่</button>
+                </div>
+                <sc-if value="{{ isDstNew }}" hint-placeholder-val="{{ true }}">
+                  <div style="border:1px solid #E1E6EE;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:#F9FAFC">
+                    <div style="font-size:12px;color:#5C6880">ดึงข้อมูลเริ่มต้นจาก <span style="font-family:'IBM Plex Mono',monospace;color:#1D4E9E">P70-045</span> แข่งขันทักษะวิชาชีพระดับภาค (รอเงินเพิ่ม)</div>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#33415A">ชื่อโครงการใหม่
+                      <input value="แข่งขันทักษะวิชาชีพระดับภาค (ระยะที่ 1)" style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13.5px;background:#fff">
+                    </label>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#33415A">หน่วยงาน<select style="height:36px;padding:0 8px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>งานกิจกรรมนักเรียนนักศึกษา</option></select></label>
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#33415A">ผู้รับผิดชอบ<input value="ครูวิไลวรรณ สายทอง" style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"></label>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ isDstExisting }}">
+                  <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#33415A">เลือกโครงการ
+                    <select style="height:36px;padding:0 8px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff"><option>P70-045 แข่งขันทักษะวิชาชีพระดับภาค</option><option>P70-017 พัฒนาห้องปฏิบัติการอิเล็กทรอนิกส์อัจฉริยะ</option></select>
+                  </label>
+                </sc-if>
+                <div style="font-size:12.5px;font-weight:600;color:#33415A">จำนวนที่รับต่อแหล่งเงิน</div>
+                <sc-for list="{{ dstRows }}" as="dr2" hint-placeholder-count="2">
+                  <div style="display:flex;gap:10px;align-items:center">
+                    <span style="flex:1;display:flex;align-items:center;gap:8px;font-size:13.5px"><span style="width:9px;height:9px;border-radius:2px;background:{{ dr2.color }}"></span>{{ dr2.name }}</span>
+                    <input type="number" step="500" value="{{ dr2.amt }}" onChange="{{ dr2.on }}" style="width:150px;height:34px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13.5px;text-align:right">
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:1 1 460px;min-width:0;background:#fff;border:1px solid #E1E6EE;border-radius:10px">
+              <div style="padding:12px 16px;border-bottom:1px solid #EDF0F5"><h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">ผลต่างรายกองเงิน (Δ = ให้ปลายทาง − รับจากต้นทาง)</h3></div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;min-width:480px">
+                  <thead><tr>
+                    <th style="text-align:left;padding:9px 12px 9px 16px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">กองเงิน</th>
+                    <th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">รับจากต้นทาง</th>
+                    <th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ให้ปลายทาง</th>
+                    <th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">Δ</th>
+                    <th style="text-align:left;padding:9px 16px 9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ผล</th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ deltaRows }}" as="dl" hint-placeholder-count="2">
+                      <tr>
+                        <td style="padding:10px 12px 10px 16px;border-bottom:1px solid #EEF1F5;font-size:13.5px"><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:2px;background:{{ dl.color }}"></span>{{ dl.name }}</span></td>
+                        <td style="padding:10px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right">{{ dl.giveS }}</td>
+                        <td style="padding:10px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right">{{ dl.takeS }}</td>
+                        <td style="padding:10px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;font-weight:700;color:{{ dl.c }}">{{ dl.deltaS }}</td>
+                        <td style="padding:10px 16px 10px 12px;border-bottom:1px solid #EEF1F5"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;background:{{ dl.bg }};color:{{ dl.fg }}">{{ dl.label }}</span></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="padding:14px 16px">
+                <sc-if value="{{ hasExtra }}">
+                  <div style="border:1px solid #F0B27F;background:#FFF4EA;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;gap:10px;align-items:center">
+                      <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:4px;background:#C2410C;color:#fff;font-size:12.5px;font-weight:700">ใช้งบเพิ่ม</span>
+                      <span style="font-size:14px;font-weight:600;color:#7A3205">ต้องใช้เงินเพิ่ม {{ extraS }} บาท · ต้องได้รับอนุมัติจากผู้อำนวยการ</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5A2604">จำนวนที่เพิ่ม (บาท)
+                        <input value="{{ extraS }}" readonly style="height:36px;padding:0 10px;border:1px solid #E8C4A4;border-radius:6px;font-size:13.5px;text-align:right;background:#FFFBF7;font-weight:600">
+                      </label>
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5A2604">กองเงินที่ใช้
+                        <select value="{{ extraFund }}" onChange="{{ onExtraFund }}" style="height:36px;padding:0 8px;border:1px solid #E8C4A4;border-radius:6px;font-size:13px;background:#fff">
+                          <option value="inc">เงินรายได้สถานศึกษา</option><option value="bud">เงินงบประมาณ</option><option value="sub">เงินอุดหนุน</option><option value="don">เงินบริจาค</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div style="font-size:12.5px;color:#5A2604">คงเหลือจัดสรรได้ (จริง) ของ{{ efName }}: <b>{{ efAvailS }}</b> → หลังอนุมัติ <b style="color:{{ efAfterC }}">{{ efAfterS }}</b></div>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5A2604">เหตุผลและข้อสังเกต <span style="color:#B42323">*</span>
+                      <textarea value="{{ reason }}" onChange="{{ onReason }}" rows="3" placeholder="เช่น ค่าเดินทางและที่พักระดับภาคปรับขึ้นตามประกาศของสำนักงานคณะกรรมการการอาชีวศึกษา" style="padding:8px 10px;border:1px solid {{ reasonBd }};border-radius:6px;font-size:13.5px;resize:vertical;background:#fff"></textarea>
+                    </label>
+                    <sc-if value="{{ reasonErr }}"><div style="font-size:12px;color:#B42323">กรุณาระบุเหตุผลก่อนส่งคำขอที่ใช้งบเพิ่ม</div></sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ noExtra }}">
+                  <div style="border:1px solid #A9D9BC;background:#E9F6EE;border-radius:8px;padding:12px 14px;display:flex;gap:10px;align-items:center;color:#13693A">
+                    <svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3"></path></svg>
+                    <span style="font-size:13.5px"><b>ผ่านตามปกติ</b> · {{ retText }}</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="flex:1 1 420px;min-width:0;background:#fff;border:1px solid #E1E6EE;border-radius:10px">
+              <div style="padding:12px 16px;border-bottom:1px solid #EDF0F5"><h3 style="margin:0;font-size:14px;font-weight:600;color:#0F2245">เส้นทางเงินของคำขอนี้</h3></div>
+              <div style="padding:12px 12px 8px">
+                <svg viewBox="0 0 600 230" style="width:100%;height:auto;display:block">
+                  <sc-for list="{{ sk.links }}" as="lk"><path d="{{ lk.d }}" style="fill:{{ lk.color }};opacity:.32"></path></sc-for>
+                  <sc-for list="{{ sk.nodes }}" as="nd">
+                    <rect x="{{ nd.x }}" y="{{ nd.y }}" width="12" height="{{ nd.h }}" rx="2" style="fill:{{ nd.color }}"></rect>
+                    <text x="{{ nd.tx }}" y="{{ nd.ty1 }}" style="font-size:12px;font-weight:600;fill:#18233A;text-anchor:{{ nd.anchor }}">{{ nd.label }}</text>
+                    <text x="{{ nd.tx }}" y="{{ nd.ty2 }}" style="font-size:11px;fill:#5C6880;text-anchor:{{ nd.anchor }}">{{ nd.sub }}</text>
+                  </sc-for>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+<!--/PAGE:REPLAN-->
+
+<!--PAGE:FUNDS-->
+      <sc-if value="{{ isFundsOrLedger }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:12.5px;color:#6A7689">กองเงิน</div>
+              <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;color:#0F2245">{{ fundsTitle }}</h1>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #C9D2DE;background:#fff;color:#1B2B45;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#F3F6FA">ส่งออก Excel</button>
+              <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #0F2C5C;background:#0F2C5C;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#0A2148">+ บันทึกรับเงิน</button>
+            </div>
+          </div>
+
+          <sc-if value="{{ showFundCards }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start">
+              <sc-for list="{{ fundCards }}" as="fc" hint-placeholder-count="4">
+                <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04);display:flex;flex-direction:column">
+                  <div style="height:4px;border-radius:10px 10px 0 0;background:{{ fc.color }}"></div>
+                  <div style="padding:14px 16px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span style="font-size:14.5px;font-weight:600;color:#0F2245">{{ fc.name }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5C6880">{{ fc.code }}</span>
+                  </div>
+                  <div style="padding:10px 16px 14px;display:flex;flex-direction:column;gap:12px">
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                      <div style="padding:10px;border-radius:8px;background:#F5F8FD;border:1px solid #DCE5F3"><div style="font-size:11.5px;color:#33415A">คงเหลือจัดสรรได้ (จริง)</div><div style="font-size:16px;font-weight:700;color:{{ fc.actC }}">{{ fc.actS }}</div></div>
+                      <div style="padding:10px;border-radius:8px;border:1px dashed #C9D2DE"><div style="font-size:11.5px;color:#5C6880">(ตามประมาณการ)</div><div style="font-size:16px;font-weight:600;color:#5C6880">{{ fc.estS }}</div></div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:5px">
+                      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#5C6880"><span>รับจริงเทียบประมาณการถึงงวด</span><span style="font-weight:600;color:{{ fc.diffC }}">{{ fc.diffS }}</span></div>
+                      <div style="position:relative;height:10px;border-radius:3px;background:#EEF1F5">
+                        <div style="position:absolute;left:0;top:0;bottom:0;width:{{ fc.recvW }};background:{{ fc.color }};border-radius:3px"></div>
+                        <div style="position:absolute;left:0;top:-3px;bottom:-3px;width:{{ fc.estW }};border:1.5px dashed #33415A;border-radius:3px"></div>
+                      </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 14px">
+                      <sc-for list="{{ fc.metrics }}" as="mt" hint-placeholder-count="8">
+                        <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #EEF1F5;font-size:12px"><span style="color:#5C6880;white-space:nowrap">{{ mt.k }}</span><span style="font-weight:500;white-space:nowrap">{{ mt.v }}</span></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <sc-if value="{{ fc.hasSubs }}">
+                        <button onClick="{{ fc.toggle }}" style="height:28px;padding:0;border:0;background:transparent;color:#1D4E9E;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:4px">
+                          <svg width="14" height="14" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform:{{ fc.rot }}"><path d="M9 6l6 6-6 6"></path></svg>กองย่อย ({{ fc.subCount }})
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ fc.noSubs }}"><span style="font-size:12px;color:#8A96A8">ไม่มีกองย่อย</span></sc-if>
+                      <a onClick="{{ fc.filter }}" style="font-size:12.5px;cursor:pointer">ดูรายการในสมุดบัญชี</a>
+                    </div>
+                    <sc-if value="{{ fc.open }}">
+                      <div style="border-left:2px solid {{ fc.color }};padding-left:12px;display:flex;flex-direction:column;gap:4px">
+                        <sc-for list="{{ fc.subs }}" as="sb">
+                          <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0"><span>{{ sb.k }}</span><span style="font-weight:500">{{ sb.v }}</span></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <div style="background:#fff;border:1px solid #E1E6EE;border-radius:10px;box-shadow:0 1px 2px rgba(16,34,68,.04)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #EDF0F5;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column">
+                <h3 style="margin:0;font-size:15px;font-weight:600;color:#0F2245">สมุดบัญชี · รายการเคลื่อนไหว</h3>
+                <span style="font-size:12px;color:#5C6880">ไม่มีการลบรายการ ใช้การกลับรายการพร้อมเหตุผลแทน</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ ledgerChips }}" as="lc" hint-placeholder-count="5">
+                  <button onClick="{{ lc.pick }}" style="height:30px;padding:0 10px;border-radius:15px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px;border:1px solid {{ lc.bd }};background:{{ lc.bg }};color:{{ lc.fg }}"><span style="width:8px;height:8px;border-radius:2px;background:{{ lc.color }}"></span>{{ lc.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px">
+              <input value="{{ ledgerQ }}" onChange="{{ onLedgerQ }}" placeholder="ค้นหาเลขที่รายการ โครงการ หรือเอกสารอ้างอิง" style="flex:1 1 260px;max-width:380px;height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13.5px">
+              <select value="{{ ledgerType }}" onChange="{{ onLedgerType }}" style="height:36px;padding:0 10px;border:1px solid #C9D2DE;border-radius:6px;font-size:13px;background:#fff">
+                <option value="all">ทุกประเภท</option><option value="รับเงิน">รับเงิน</option><option value="จัดสรร">จัดสรร</option><option value="อนุญาตใช้เงิน">อนุญาตใช้เงิน</option><option value="ผูกพัน">ผูกพัน</option><option value="จ่ายจริง">จ่ายจริง</option><option value="โอนตามปรับแผน">โอนตามปรับแผน</option><option value="กลับรายการ">กลับรายการ</option>
+              </select>
+            </div>
+            <div style="overflow-x:auto;border-top:1px solid #E1E6EE">
+              <table style="width:100%;border-collapse:collapse;min-width:1100px">
+                <thead><tr>
+                  <th style="text-align:left;padding:9px 12px 9px 16px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE;white-space:nowrap">เลขที่รายการ</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">วันที่</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ประเภท</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">จาก → ไป</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">แหล่งเงิน</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">หมวด</th>
+                  <th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">จำนวน (บาท)</th>
+                  <th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">เอกสารอ้างอิง</th>
+                  <th style="text-align:left;padding:9px 16px 9px 12px;font-size:12px;font-weight:600;color:#5C6880;background:#F6F8FB;border-bottom:1px solid #E1E6EE">ผู้บันทึก</th>
+                </tr></thead>
+                <tbody>
+                  <sc-for list="{{ ledgerRows }}" as="lg" hint-placeholder-count="10">
+                    <tr style="background:{{ lg.bg }}">
+                      <td style="padding:8px 12px 8px 16px;border-bottom:1px solid #EEF1F5;font-family:'IBM Plex Mono',monospace;font-size:12px;white-space:nowrap;color:#33415A">{{ lg.id }}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:12.5px;white-space:nowrap">{{ lg.date }}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5"><span style="display:inline-flex;align-items:center;height:21px;padding:0 7px;border-radius:4px;font-size:11.5px;font-weight:500;white-space:nowrap;background:{{ lg.tb }};color:{{ lg.tf }}">{{ lg.type }}</span></td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:13px">
+                        <div style="text-decoration:{{ lg.tdec }};color:{{ lg.txc }}">{{ lg.flow }}</div>
+                        <sc-if value="{{ lg.isReversed }}"><div style="font-size:11.5px;color:#B42323;margin-top:2px">ถูกกลับรายการโดย <a onClick="{{ lg.jump }}" style="font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ lg.reversedBy }}</a></div></sc-if>
+                        <sc-if value="{{ lg.isReversal }}"><div style="font-size:11.5px;color:#5C6880;margin-top:2px">กลับรายการของ <a onClick="{{ lg.jump }}" style="font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ lg.reverses }}</a></div></sc-if>
+                      </td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:12.5px;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }}"></span>{{ lg.fs }}</span></td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:12.5px;color:#3A4659">{{ lg.cat }}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:13.5px;text-align:right;white-space:nowrap;font-weight:600;color:{{ lg.ac }};text-decoration:{{ lg.tdec }}">{{ lg.amtS }}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #EEF1F5;font-size:12.5px;color:#1D4E9E;white-space:nowrap">{{ lg.ref }}</td>
+                      <td style="padding:8px 16px 8px 12px;border-bottom:1px solid #EEF1F5;font-size:12.5px;color:#3A4659;white-space:nowrap">{{ lg.by }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <sc-if value="{{ ledgerEmpty }}"><div style="padding:36px 16px;text-align:center;font-size:13.5px;color:#5C6880">ไม่พบรายการตามเงื่อนไข</div></sc-if>
+            <div style="padding:12px 16px;font-size:12.5px;color:#5C6880">แสดง {{ ledgerCount }} รายการ · ตัวอย่างล่าสุดจาก 1,842 รายการในปีงบประมาณ 2570</div>
+          </div>
+        </div>
+      </sc-if>
+<!--/PAGE:FUNDS-->
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dashboard&quot;,&quot;projects&quot;,&quot;detail&quot;,&quot;scenario&quot;,&quot;replan&quot;,&quot;funds&quot;,&quot;ledger&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;การแสดงผล&quot;},&quot;dashState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;warning&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;error&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;การแสดงผล&quot;},&quot;sidebarCollapsed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;การแสดงผล&quot;}}">
+const I = {
+  home:'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  inbox:'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+  list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  filePlus:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15h6',
+  shuffle:'M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
+  sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+  check:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  wallet:'M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4',
+  trend:'M22 7l-8.5 8.5-5-5L2 17M16 7h6v6',
+  download:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  book:'M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20',
+  receipt:'M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1zM8 8h8M8 12h8M8 16h5',
+  pen:'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  bar:'M3 3v18h18M18 17V9M13 17V5M8 17v-3',
+  gear:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
+};
+const FUNDS = [
+  {key:'bud',name:'เงินงบประมาณ',short:'งบประมาณ',color:'#2F6FDB',soft:'#DCE7FA',code:'FD-01',carry:0,est:12400000,estTD:6200000,recv:5860000,reserve:0,alloc:4120000,committed:980000,paid:1350400,subs:[['งบดำเนินงาน',1180000],['งบลงทุน',560000]]},
+  {key:'sub',name:'เงินอุดหนุน',short:'อุดหนุน',color:'#0E9494',soft:'#D2EEEE',code:'FD-02',carry:3210500,est:15680000,estTD:7840000,recv:7940000,reserve:300000,alloc:6880000,committed:1420000,paid:2105750,subs:[['ค่าจัดการเรียนการสอน',2140500],['ค่าหนังสือเรียน',620000],['ค่าอุปกรณ์การเรียน',488000],['ค่ากิจกรรมพัฒนาคุณภาพผู้เรียน',722000]]},
+  {key:'inc',name:'เงินรายได้สถานศึกษา',short:'รายได้',color:'#C98A06',soft:'#F8EBCB',code:'FD-03',carry:6845220.5,est:14520000,estTD:7900000,recv:8310400,reserve:500000,alloc:9450000,committed:2250000,paid:3020900.25,subs:[['ค่าบำรุงการศึกษา',3205620.5],['รายได้จากการบริการวิชาชีพ',1240000],['ดอกเบี้ยและรายได้อื่น',760000]]},
+  {key:'don',name:'เงินบริจาค',short:'บริจาค',color:'#7A5AC8',soft:'#E9E2F7',code:'FD-04',carry:125000,est:200000,estTD:100000,recv:85000,reserve:0,alloc:150000,committed:30000,paid:40000,subs:[]}
+];
+const FK = {}; FUNDS.forEach(f => FK[f.key] = f);
+const ST = {draft:['ร่าง','#EDEFF3','#465166'],submitted:['อยู่ระหว่างเสนอ','#E5EFFD','#1C59B5'],returned:['ส่งกลับแก้ไข','#FDECDF','#A84A0C'],planning_review:['งานแผนฯ ตรวจ','#E5EFFD','#1C59B5'],pending_decision:['รอพิจารณา','#EEE8FA','#5A3EA6'],waitlisted:['รอเงินเพิ่ม','#FBF1CF','#7E5A00'],rejected:['ไม่อนุมัติ','#DFE3E9','#2C3546'],approved:['อนุมัติในแผน','#DAE6FA','#16469A'],in_progress:['กำลังดำเนินการ','#0F2C5C','#FFFFFF'],awaiting_report:['รอรายงานผล','#FDECDF','#A84A0C'],closed:['ปิดโครงการ','#D9F0E2','#13693A'],cancelled:['ยกเลิก','#DFE3E9','#2C3546'],transferred_out:['โอนออกทั้งหมด','#EDEFF3','#465166']};
+const LT = {green:['ตามแผน','#1F9D55'],yellow:['ล่าช้า','#D9A406'],red:['เสี่ยง','#D23C3C'],none:['—','#C5CCD6']};
+const st = k => ({label:ST[k][0],bg:ST[k][1],fg:ST[k][2]});
+const lt = k => ({label:LT[k][0],color:LT[k][1]});
+const fmt = n => (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0 = n => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('en-US');
+const fmtM = n => (n/1e6).toFixed(2);
+const P = (a,b) => (b ? Math.max(0, a/b*100) : 0).toFixed(2) + '%';
+
+const PROJECTS = [
+  {code:'P70-014',name:'พัฒนาทักษะวิชาชีพช่างยนต์สู่มาตรฐานฝีมือแรงงาน',unit:'แผนกวิชาช่างยนต์',div:'ฝ่ายวิชาการ',fund:'sub',req:185000,app:150000,paid:48250,q:'ไตรมาส 2',status:'in_progress',light:'green'},
+  {code:'P70-022',name:'ปรับปรุงระบบเครือข่ายไร้สายอาคารเรียน 3',unit:'งานศูนย์ข้อมูลสารสนเทศ',div:'ฝ่ายแผนงานและความร่วมมือ',fund:'inc',req:420000,app:420000,paid:0,q:'ไตรมาส 2',status:'approved',light:'yellow'},
+  {code:'P70-031',name:'อบรมครูด้านการสอนแบบ Active Learning',unit:'งานพัฒนาหลักสูตรฯ',div:'ฝ่ายวิชาการ',fund:'bud',req:96500,app:80000,paid:76400,q:'ไตรมาส 1',status:'awaiting_report',light:'yellow'},
+  {code:'P70-045',name:'แข่งขันทักษะวิชาชีพระดับภาค',unit:'งานกิจกรรมนักเรียนนักศึกษา',div:'ฝ่ายพัฒนากิจการนักเรียนนักศึกษา',fund:'inc',req:260000,app:0,paid:0,q:'ไตรมาส 3',status:'waitlisted',light:'none'},
+  {code:'P70-052',name:'ศูนย์ซ่อมสร้างเพื่อชุมชน (Fix it Center)',unit:'งานโครงการพิเศษฯ',div:'ฝ่ายแผนงานและความร่วมมือ',fund:'bud',req:350000,app:350000,paid:128600,q:'ไตรมาส 1–2',status:'in_progress',light:'red'},
+  {code:'P70-008',name:'จัดซื้อวัสดุฝึกแผนกวิชาช่างไฟฟ้ากำลัง',unit:'แผนกวิชาช่างไฟฟ้ากำลัง',div:'ฝ่ายวิชาการ',fund:'sub',req:310000,app:290000,paid:182300,q:'ไตรมาส 1',status:'in_progress',light:'green'},
+  {code:'P70-011',name:'ซ่อมบำรุงระบบไฟฟ้าอาคาร 1',unit:'งานอาคารสถานที่',div:'ฝ่ายบริหารทรัพยากร',fund:'bud',req:240000,app:240000,paid:0,q:'ไตรมาส 2',status:'approved',light:'green'},
+  {code:'P70-017',name:'พัฒนาห้องปฏิบัติการอิเล็กทรอนิกส์อัจฉริยะ',unit:'แผนกวิชาช่างอิเล็กทรอนิกส์',div:'ฝ่ายวิชาการ',fund:'sub',req:280000,app:150000,paid:0,q:'ไตรมาส 3',status:'approved',light:'green'},
+  {code:'P70-026',name:'ทวิภาคีสัญจรสถานประกอบการ',unit:'งานความร่วมมือ',div:'ฝ่ายแผนงานและความร่วมมือ',fund:'inc',req:120000,app:100000,paid:32000,q:'ไตรมาส 2',status:'in_progress',light:'green'},
+  {code:'P70-033',name:'ระบบบัญชีออนไลน์สำหรับฝึกปฏิบัติ',unit:'แผนกวิชาการบัญชี',div:'ฝ่ายวิชาการ',fund:'inc',req:145000,app:90000,paid:77500,q:'ไตรมาส 1',status:'closed',light:'green'},
+  {code:'P70-038',name:'ค่ายพัฒนาคุณธรรมจริยธรรมผู้เรียน',unit:'งานกิจกรรมนักเรียนนักศึกษา',div:'ฝ่ายพัฒนากิจการนักเรียนนักศึกษา',fund:'don',req:85000,app:70000,paid:40000,q:'ไตรมาส 2',status:'in_progress',light:'yellow'},
+  {code:'P70-061',name:'จัดซื้อครุภัณฑ์สำนักงานงานทะเบียน',unit:'งานทะเบียน',div:'ฝ่ายบริหารทรัพยากร',fund:'bud',req:90000,app:90000,paid:35000,q:'ไตรมาส 1',status:'in_progress',light:'green'},
+  {code:'P70-029',name:'ส่งเสริมการเรียนรู้ภาษาอังกฤษเพื่อการสื่อสาร',unit:'แผนกวิชาสามัญสัมพันธ์',div:'ฝ่ายวิชาการ',fund:'bud',req:75000,app:0,paid:0,q:'—',status:'rejected',light:'none'},
+  {code:'P70-047',name:'ปรับภูมิทัศน์และป้ายสถานศึกษา',unit:'งานอาคารสถานที่',div:'ฝ่ายบริหารทรัพยากร',fund:'inc',req:180000,app:0,paid:0,q:'ไตรมาส 3',status:'returned',light:'none'},
+  {code:'P70-070',name:'อบรมการใช้ AI ในการเรียนการสอน',unit:'งานพัฒนาหลักสูตรฯ',div:'ฝ่ายวิชาการ',fund:'bud',req:48000,app:0,paid:0,q:'ไตรมาส 3',status:'submitted',light:'none'}
+];
+
+const NEED = {1:['จำเป็นต้องทำ','#0F2C5C','#FFFFFF'],2:['ควรทำ','#DAE6FA','#16469A'],3:['ทำได้ถ้ามีงบ','#EDEFF3','#465166']};
+const CRIT = ['ความจำเป็น','ผลต่อผู้เรียน','สอดคล้องยุทธศาสตร์','ความพร้อมดำเนินการ','ผลงานปีก่อน'];
+const CAP = {bud:1050000,sub:700000,inc:1000000,don:130000};
+const DIVS = [['วิชาการ','ฝ่ายวิชาการ',54],['กิจการ','ฝ่ายพัฒนากิจการฯ',22],['แผนงาน','ฝ่ายแผนงานฯ',15],['บริหาร','ฝ่ายบริหารทรัพยากร',9]];
+const SCN = [
+  {code:'P70-014',name:'พัฒนาทักษะวิชาชีพช่างยนต์สู่มาตรฐานฝีมือแรงงาน',unit:'แผนกวิชาช่างยนต์',div:'วิชาการ',fund:'sub',need:1,req:185000,min:120000,c:[95,90,85,80,88],why:'ผู้เรียน ปวช.3 ต้องผ่านการทดสอบมาตรฐานฝีมือแรงงานก่อนจบ ตามเกณฑ์การประเมินคุณภาพภายนอก',impact:'ผู้เรียน 40 คนไม่ได้ทดสอบมาตรฐาน กระทบตัวชี้วัดมาตรฐานที่ 1',last:'ปี 2569: บรรลุ 4/5 ตัวชี้วัด · ใช้เงิน 96%'},
+  {code:'P70-022',name:'ปรับปรุงระบบเครือข่ายไร้สายอาคารเรียน 3',unit:'งานศูนย์ข้อมูลสารสนเทศ',div:'แผนงาน',fund:'inc',need:1,req:420000,min:300000,c:[90,85,70,75,60],why:'อุปกรณ์เดิมหมดอายุการรับประกัน สัญญาณไม่ครอบคลุมห้องปฏิบัติการ 12 ห้อง',impact:'การสอบออนไลน์และระบบ e-Learning ใช้งานไม่ได้ในอาคาร 3',last:'โครงการใหม่'},
+  {code:'P70-031',name:'อบรมครูด้านการสอนแบบ Active Learning',unit:'งานพัฒนาหลักสูตรฯ',div:'วิชาการ',fund:'bud',need:2,req:96500,min:60000,c:[70,80,90,85,72],why:'นโยบาย สอศ. กำหนดให้ครูทุกคนจัดการเรียนรู้เชิงรุกอย่างน้อย 1 รายวิชา',impact:'ครู 48 คนขาดการพัฒนาตามแผนพัฒนาบุคลากร',last:'ปี 2569: บรรลุ 3/3 ตัวชี้วัด · ใช้เงิน 88%'},
+  {code:'P70-045',name:'แข่งขันทักษะวิชาชีพระดับภาค',unit:'งานกิจกรรมนักเรียนนักศึกษา',div:'กิจการ',fund:'inc',need:2,req:260000,min:180000,c:[65,88,75,70,80],why:'ผู้เรียนผ่านการคัดเลือกระดับจังหวัด 9 ทักษะ ต้องเดินทางเข้าแข่งขันระดับภาค',impact:'สละสิทธิ์การแข่งขัน เสียโอกาสเข้าสู่ระดับชาติ',last:'ปี 2569: ได้รางวัลระดับภาค 4 ทักษะ'},
+  {code:'P70-052',name:'ศูนย์ซ่อมสร้างเพื่อชุมชน (Fix it Center)',unit:'งานโครงการพิเศษฯ',div:'แผนงาน',fund:'bud',need:2,req:350000,min:250000,c:[72,70,92,60,65],why:'โครงการตามนโยบาย สอศ. ให้บริการซ่อมเครื่องใช้แก่ชุมชน 6 จุด',impact:'ไม่ได้ให้บริการชุมชนตามข้อตกลงกับจังหวัด',last:'ปี 2569: บรรลุ 2/4 ตัวชี้วัด · ใช้เงิน 71%'},
+  {code:'P70-008',name:'จัดซื้อวัสดุฝึกแผนกวิชาช่างไฟฟ้ากำลัง',unit:'แผนกวิชาช่างไฟฟ้ากำลัง',div:'วิชาการ',fund:'sub',need:1,req:310000,min:260000,c:[98,95,70,90,70],why:'วัสดุฝึกสำหรับรายวิชาปฏิบัติ 14 รายวิชา ผู้เรียน 312 คน',impact:'จัดการเรียนการสอนภาคปฏิบัติไม่ได้ตามหลักสูตร',last:'ปี 2569: ใช้เงิน 99%'},
+  {code:'P70-011',name:'ซ่อมบำรุงระบบไฟฟ้าอาคาร 1',unit:'งานอาคารสถานที่',div:'บริหาร',fund:'bud',need:1,req:240000,min:240000,c:[100,60,55,90,50],why:'ผลตรวจระบบไฟฟ้าพบสายเมนชำรุด มีความเสี่ยงไฟฟ้าลัดวงจร',impact:'ความเสี่ยงด้านความปลอดภัยต่อผู้เรียนและบุคลากร',last:'โครงการใหม่'},
+  {code:'P70-017',name:'พัฒนาห้องปฏิบัติการอิเล็กทรอนิกส์อัจฉริยะ',unit:'แผนกวิชาช่างอิเล็กทรอนิกส์',div:'วิชาการ',fund:'sub',need:2,req:280000,min:150000,c:[68,85,88,55,62],why:'ยกระดับห้องปฏิบัติการรองรับหลักสูตร IoT ที่เปิดใหม่',impact:'เปิดรายวิชา IoT ได้เพียงภาคทฤษฎี',last:'โครงการใหม่'},
+  {code:'P70-026',name:'ทวิภาคีสัญจรสถานประกอบการ',unit:'งานความร่วมมือ',div:'แผนงาน',fund:'inc',need:2,req:120000,min:80000,c:[60,78,85,80,75],why:'นิเทศผู้เรียนระบบทวิภาคีในสถานประกอบการ 38 แห่ง',impact:'นิเทศไม่ครบตามเกณฑ์อาชีวศึกษาระบบทวิภาคี',last:'ปี 2569: บรรลุ 3/3 ตัวชี้วัด'},
+  {code:'P70-029',name:'ส่งเสริมการเรียนรู้ภาษาอังกฤษเพื่อการสื่อสาร',unit:'แผนกวิชาสามัญสัมพันธ์',div:'วิชาการ',fund:'bud',need:3,req:75000,min:40000,c:[45,70,72,85,68],why:'เพิ่มทักษะสื่อสารภาษาอังกฤษก่อนฝึกงาน',impact:'ใช้กิจกรรมในรายวิชาแทนได้',last:'ปี 2569: บรรลุ 2/3 ตัวชี้วัด'},
+  {code:'P70-033',name:'ระบบบัญชีออนไลน์สำหรับฝึกปฏิบัติ',unit:'แผนกวิชาการบัญชี',div:'วิชาการ',fund:'inc',need:3,req:145000,min:90000,c:[50,72,65,75,55],why:'ผู้เรียนฝึกบันทึกบัญชีด้วยซอฟต์แวร์ที่สถานประกอบการใช้จริง',impact:'ใช้ซอฟต์แวร์รุ่นทดลองต่อได้ 1 ปี',last:'โครงการใหม่'},
+  {code:'P70-038',name:'ค่ายพัฒนาคุณธรรมจริยธรรมผู้เรียน',unit:'งานกิจกรรมนักเรียนนักศึกษา',div:'กิจการ',fund:'don',need:2,req:85000,min:60000,c:[62,80,70,88,82],why:'กิจกรรมบังคับตามแผนพัฒนาคุณลักษณะผู้เรียน ปวช.1',impact:'ผู้เรียน 420 คนขาดกิจกรรมตามแผน',last:'ปี 2569: บรรลุ 3/3 ตัวชี้วัด'},
+  {code:'P70-041',name:'ตลาดนัดผลิตภัณฑ์ดิจิทัลผู้เรียน',unit:'แผนกวิชาเทคโนโลยีธุรกิจดิจิทัล',div:'วิชาการ',fund:'inc',need:3,req:110000,min:70000,c:[40,65,60,70,58],why:'ฝึกผู้เรียนจำหน่ายสินค้าออนไลน์และออฟไลน์',impact:'จัดในรูปแบบออนไลน์อย่างเดียวได้',last:'ปี 2569: บรรลุ 1/2 ตัวชี้วัด'},
+  {code:'P70-047',name:'ปรับภูมิทัศน์และป้ายสถานศึกษา',unit:'งานอาคารสถานที่',div:'บริหาร',fund:'inc',need:3,req:180000,min:100000,c:[35,30,40,85,50],why:'ป้ายเดิมชำรุด ภูมิทัศน์ด้านหน้าไม่เป็นระเบียบ',impact:'ภาพลักษณ์สถานศึกษา',last:'โครงการใหม่'},
+  {code:'P70-050',name:'ทุนการศึกษาผู้เรียนขาดแคลน',unit:'งานแนะแนวอาชีพฯ',div:'กิจการ',fund:'don',need:1,req:60000,min:40000,c:[85,92,70,90,80],why:'ผู้เรียนขาดแคลนทุนทรัพย์ 30 คนเสี่ยงออกกลางคัน',impact:'อัตราการออกกลางคันเพิ่มขึ้น',last:'ปี 2569: มอบทุน 28 ทุน'}
+];
+const SCK = {}; SCN.forEach(r => SCK[r.code] = r);
+const W0 = [35,25,15,15,10];
+const scoreOf = (r,w) => { const s = w.reduce((a,b)=>a+b,0) || 1; return r.c.reduce((a,v,i)=>a+v*w[i],0)/s; };
+function autofill(w, dec) {
+  const out = {...dec}; const rem = {...CAP};
+  const sorted = [...SCN].sort((a,b)=>scoreOf(b,w)-scoreOf(a,w));
+  sorted.forEach(r => { const c = out[r.code]; if (c && c.l) rem[r.fund] -= c.g; });
+  sorted.forEach(r => {
+    const c = out[r.code]; if (c && c.l) return;
+    const R = rem[r.fund]; let d, g;
+    if (R >= r.req) { d='full'; g=r.req; } else if (R >= r.min) { d='partial'; g=Math.floor(R/1000)*1000; } else { d='wait'; g=0; }
+    rem[r.fund] -= g; out[r.code] = {d, g, l:false};
+  });
+  return out;
+}
+const DEC0 = autofill(W0, {'P70-011':{d:'full',g:240000,l:true}});
+
+const LEDGER = [
+  {id:'LG70-01842',date:'15 ม.ค. 2570',type:'จ่ายจริง',flow:'P70-014 → หจก.ช่างไทยอะไหล่',fund:'sub',cat:'ค่าวัสดุ',amt:-18250,ref:'ฎีกา 0112/2570',by:'กนกพร มีสุข (การเงิน)'},
+  {id:'LG70-01841',date:'15 ม.ค. 2570',type:'ผูกพัน',flow:'P70-008 → บจก.ไฟฟ้าสยาม',fund:'sub',cat:'ค่าวัสดุ',amt:-77700,ref:'ใบสั่งซื้อ 0388/2570',by:'วิชัย พงษ์ไทย (พัสดุ)'},
+  {id:'LG70-01840',date:'14 ม.ค. 2570',type:'รับเงิน',flow:'สอศ. → กองเงินอุดหนุน',fund:'sub',cat:'—',amt:2480000,ref:'หนังสือ ศธ 0606/1453',by:'กนกพร มีสุข (การเงิน)'},
+  {id:'LG70-01839',date:'14 ม.ค. 2570',type:'กลับรายการ',flow:'ยกเลิก LG70-01836',fund:'inc',cat:'ค่าใช้สอย',amt:12500,ref:'บันทึกข้อความ 021/2570',by:'สมศรี ใจดี (งานแผนฯ)',reverses:'LG70-01836'},
+  {id:'LG70-01838',date:'13 ม.ค. 2570',type:'โอนตามปรับแผน',flow:'P70-009 → P70-014',fund:'sub',cat:'ค่าวัสดุ',amt:15000,ref:'คำขอ RP70-003',by:'สมศรี ใจดี (งานแผนฯ)'},
+  {id:'LG70-01837',date:'12 ม.ค. 2570',type:'อนุญาตใช้เงิน',flow:'P70-014 รอบที่ 2',fund:'sub',cat:'—',amt:45000,ref:'AP70-014-2',by:'อำนาจ รุ่งเรือง (ผอ.)'},
+  {id:'LG70-01836',date:'12 ม.ค. 2570',type:'จ่ายจริง',flow:'P70-033 → ร้านเอบีซีซอฟต์',fund:'inc',cat:'ค่าใช้สอย',amt:-12500,ref:'ฎีกา 0098/2570',by:'กนกพร มีสุข (การเงิน)',reversedBy:'LG70-01839'},
+  {id:'LG70-01835',date:'11 ม.ค. 2570',type:'รับเงิน',flow:'ค่าบำรุงการศึกษา 2/2569 → กองเงินรายได้',fund:'inc',cat:'—',amt:1845000,ref:'ใบเสร็จ 2569/2-0001–0842',by:'กนกพร มีสุข (การเงิน)'},
+  {id:'LG70-01834',date:'10 ม.ค. 2570',type:'จ่ายจริง',flow:'P70-052 → ร้านเครื่องมือช่างดี',fund:'bud',cat:'ค่าวัสดุ',amt:-42800,ref:'ฎีกา 0087/2570',by:'กนกพร มีสุข (การเงิน)'},
+  {id:'LG70-01833',date:'8 ม.ค. 2570',type:'รับเงิน',flow:'สมาคมศิษย์เก่า → กองเงินบริจาค',fund:'don',cat:'—',amt:25000,ref:'ใบเสร็จ D70-0007',by:'กนกพร มีสุข (การเงิน)'},
+  {id:'LG70-01832',date:'6 ม.ค. 2570',type:'ผูกพัน',flow:'P70-031 → วิทยากรภายนอก',fund:'bud',cat:'ค่าตอบแทน',amt:-24000,ref:'สัญญา 004/2570',by:'วิชัย พงษ์ไทย (พัสดุ)'},
+  {id:'LG70-01831',date:'5 ม.ค. 2570',type:'จัดสรร',flow:'กองเงินบริจาค → P70-050',fund:'don',cat:'ทุนการศึกษา',amt:-60000,ref:'มติ 2/2569 วาระ 4.3',by:'สมศรี ใจดี (งานแผนฯ)'}
+];
+
+const NAV = [
+  {id:'dashboard',label:'หน้าหลัก',icon:I.home},
+  {id:'inbox',label:'งานของฉัน',icon:I.inbox,count:7},
+  {group:'โครงการ'},
+  {id:'projects',label:'โครงการทั้งหมด',icon:I.list},
+  {id:'propose',label:'เสนอโครงการใหม่',icon:I.filePlus},
+  {id:'replan',label:'คำขอปรับแผน',icon:I.shuffle},
+  {group:'พิจารณางบประมาณ'},
+  {id:'scenario',label:'ชุดพิจารณา',icon:I.sliders},
+  {id:'resolution',label:'มติที่ประชุม',icon:I.check},
+  {group:'กองเงิน'},
+  {id:'funds',label:'ภาพรวมกองเงิน',icon:I.wallet},
+  {id:'estimates',label:'ประมาณการรายรับ',icon:I.trend},
+  {id:'receive',label:'บันทึกรับเงิน',icon:I.download},
+  {id:'ledger',label:'สมุดบัญชี',icon:I.book},
+  {group:'การเงิน/พัสดุ'},
+  {id:'commit',label:'บันทึกผูกพัน',icon:I.pen},
+  {id:'disburse',label:'บันทึกเบิกจ่าย',icon:I.receipt},
+  {group:'อื่น ๆ'},
+  {id:'reports',label:'รายงาน',icon:I.bar},
+  {id:'settings',label:'ตั้งค่า',icon:I.gear}
+];
+const BUILT = {dashboard:1,projects:1,replan:1,scenario:1,funds:1,ledger:1};
+
+class Component extends DCLogic {
+  state = {
+    page: (this.props && this.props.startPage) || 'dashboard',
+    collapsed: !!(this.props && this.props.sidebarCollapsed),
+    align: 'strat',
+    q: '', view: 'all', stFilter: 'all',
+    tab: 'overview',
+    dec: DEC0, w: W0, hist: [], fut: [], drop: 0, cut: 10, sel: {}, drawer: null, scnName: 'A', triedSubmit: false, bulk: 'full',
+    rpType: 'change', dstMode: 'new', src: {'P70-022':160000,'P70-061':55000}, dst: {inc:198500,bud:55000}, extraFund: 'inc', reason: '', submitted: false,
+    ledgerFund: 'all', ledgerQ: '', ledgerType: 'all', openSubs: {}
+  };
+  componentDidMount() {
+    this._key = e => {
+      if (this.state.page !== 'scenario') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
+      if (e.key === 'Escape') this.setState({drawer:null});
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._key); }
+  componentDidUpdate(pp) {
+    if (pp.startPage !== this.props.startPage && this.props.startPage) this.setState({page:this.props.startPage});
+    if (pp.sidebarCollapsed !== this.props.sidebarCollapsed) this.setState({collapsed:!!this.props.sidebarCollapsed});
+  }
+  go(page, extra) { this.setState({page, ...(extra||{})}); window.scrollTo(0,0); }
+  commit(fn) { this.setState(s => ({hist:[...s.hist.slice(-49),{dec:s.dec,w:s.w}], fut:[], ...fn(s)})); }
+  undo() { this.setState(s => s.hist.length ? {hist:s.hist.slice(0,-1), fut:[{dec:s.dec,w:s.w},...s.fut], ...s.hist[s.hist.length-1]} : null); }
+  redo() { this.setState(s => s.fut.length ? {fut:s.fut.slice(1), hist:[...s.hist,{dec:s.dec,w:s.w}], ...s.fut[0]} : null); }
+  setDec(code, d) {
+    const r = SCK[code];
+    this.commit(s => { const c = s.dec[code]; let g = 0;
+      if (d==='full') g = r.req; else if (d==='partial') g = (c.g > 0 && c.g < r.req) ? c.g : r.min; else if (d==='phase1') g = r.min;
+      return {dec:{...s.dec,[code]:{...c,d,g}}}; });
+  }
+
+  renderVals() {
+    const s = this.state; const props = this.props || {};
+    const dashState = props.dashState || 'normal';
+    const expanded = !s.collapsed;
+    const navPage = s.page === 'detail' ? 'projects' : s.page;
+    const nav = NAV.map(n => n.group ? {showGroup:expanded,isItem:false,label:n.group} : {
+      showGroup:false,isItem:true,label:n.label,icon:n.icon,
+      showCount: !!n.count && expanded, count:n.count,
+      bg: navPage===n.id ? 'rgba(255,255,255,.12)' : 'transparent',
+      fg: navPage===n.id ? '#FFFFFF' : 'rgba(255,255,255,.78)',
+      fw: navPage===n.id ? 600 : 400,
+      op: BUILT[n.id] ? 1 : .5, cursor: BUILT[n.id] ? 'pointer' : 'default',
+      go: BUILT[n.id] ? () => this.go(n.id) : undefined
+    });
+
+    // ---- dashboard
+    const funds = dashState==='warning' ? FUNDS.map(f => f.key==='don' ? {...f, alloc:225000} : f) : FUNDS;
+    const fx = funds.map(f => {
+      const total = f.carry + f.est, availAct = f.carry + f.recv - f.reserve - f.alloc, availEst = total - f.reserve - f.alloc;
+      return {...f, total, availAct, availEst, cash: f.carry + f.recv};
+    });
+    const sum = k => fx.reduce((a,f)=>a+f[k],0);
+    const T = {total:sum('total'),alloc:sum('alloc'),paid:sum('paid'),availEst:sum('availEst'),availAct:sum('availAct'),cash:sum('cash'),reserve:sum('reserve'),carry:sum('carry'),est:sum('est')};
+    const segs = k => fx.map(f => ({w:P(f[k],T[k]),color:f.color}));
+    const kpis = [
+      {label:'วงเงินทั้งหมด',value:fmtM(T.total),segs:segs('total'),sub:'ยกมา '+fmtM(T.carry)+' + ประมาณการรับ '+fmtM(T.est)+' ล้าน',sub2:'รับจริงแล้ว '+fmtM(T.cash)+' ล้าน ('+(T.cash/T.total*100).toFixed(1)+'%)',sub2c:'#3A4659',sub2w:400,go:()=>this.go('funds')},
+      {label:'อนุมัติแล้ว',value:fmtM(T.alloc),segs:segs('alloc'),sub:'128 โครงการ · '+(T.alloc/T.total*100).toFixed(1)+'% ของวงเงิน',sub2:'ตามแผนตั้งต้น (มติ 2/2569)',sub2c:'#3A4659',sub2w:400,go:()=>this.go('projects')},
+      {label:'จ่ายจริง',value:fmtM(T.paid),segs:segs('paid'),sub:(T.paid/T.alloc*100).toFixed(1)+'% ของที่อนุมัติ · แผนถึงวันนี้ 7.10 ล้าน',sub2:'ต่ำกว่าแผน 0.58 ล้าน',sub2c:'#8A6400',sub2w:600,go:()=>this.go('ledger')},
+      {label:'คงเหลือจัดสรรได้',value:fmtM(T.availEst),segs:segs('availEst'),sub:'ตามประมาณการ · กันไว้ '+fmtM(T.reserve)+' ล้าน',sub2:'ตามรับจริง '+fmtM(T.availAct)+' ล้าน',sub2c: dashState==='warning' ? '#B42323' : '#13693A',sub2w:600,go:()=>this.go('funds')}
+    ];
+    const fundRows = fx.map(f => ({
+      name:f.name,color:f.color,
+      wPaid:P(f.paid,f.total),wCom:P(f.committed,f.total),wAlloc:P(f.alloc-f.paid-f.committed,f.total),wRes:P(f.reserve,f.total),
+      mRecv:P(f.cash,f.total),
+      paidS:fmt(f.paid),comS:fmt(f.committed),allocS:fmt(f.alloc),totalS:fmt(f.total),
+      availActS:fmt(f.availAct), availColor: f.availAct < 0 ? '#B42323' : '#13693A',
+      open:()=>this.go('ledger',{ledgerFund:f.key})
+    }));
+    const TD = {navy:['#0F2C5C','#FFFFFF'],orange:['#FDECDF','#A84A0C'],blue:['#E5EFFD','#1C59B5'],yellow:['#FBF1CF','#7E5A00']};
+    const todos = [
+      {t:'navy',type:'ขออนุญาต',title:'P70-014 พัฒนาทักษะวิชาชีพช่างยนต์ฯ · รอบที่ 3',meta:'ครูสมชาย แก้วมณี · รอ 2 วัน',amount:'45,000.00',ac:'#18233A',go:()=>this.go('detail',{tab:'approval'})},
+      {t:'orange',type:'ใช้งบเพิ่ม',title:'RP70-008 เปลี่ยนโครงการ → แข่งขันทักษะวิชาชีพระดับภาค (ระยะที่ 1)',meta:'งานกิจกรรมนักเรียนนักศึกษา · รอ 1 วัน',amount:'+38,500.00',ac:'#A84A0C',go:()=>this.go('replan')},
+      {t:'blue',type:'เสนอโครงการ',title:'P70-070 อบรมการใช้ AI ในการเรียนการสอน',meta:'งานพัฒนาหลักสูตรฯ · รอ 4 วัน',amount:'48,000.00',ac:'#18233A',go:()=>this.go('projects')},
+      {t:'orange',type:'รายงานค้าง',title:'P70-031 อบรมครูด้านการสอนแบบ Active Learning',meta:'ครบกำหนด 3 ม.ค. 2570 · เกิน 12 วัน',amount:'80,000.00',ac:'#18233A',go:()=>this.go('projects')},
+      {t:'yellow',type:'รับต่ำกว่าประมาณการ',title:'เงินงบประมาณ · งวดที่ 2',meta:'รับจริง 5,860,000.00 จากประมาณการถึงงวด 6,200,000.00',amount:'−340,000.00',ac:'#7E5A00',go:()=>this.go('funds')}
+    ].map(t => ({...t,bg:TD[t.t][0],fg:TD[t.t][1]}));
+    const plan = [0,1.6,3.6,5.9,8.3,10.2,11.9,13.5,15.1,16.6,18.0,19.3,20.6];
+    const act = [[0,0],[1,1.2],[2,2.9],[3,4.8],[3.5,6.52]];
+    const X = i => 44 + i/12*584, Y = v => 202 - v/22*190;
+    const line = pts => pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ');
+    const chart = {
+      grid:[0,5,10,15,20].map(v=>({y:Y(v).toFixed(1),ty:(Y(v)+4).toFixed(1),label:v===0?'0':v+' ล.'})),
+      months:['ต.ค.','พ.ย.','ธ.ค.','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.'].map((m,i)=>({label:m,x:X(i+.5).toFixed(1)})),
+      plan: line(plan.map((v,i)=>[i,v])), actual: line(act),
+      area: line(act)+' L'+X(3.5).toFixed(1)+','+Y(0)+' L'+X(0)+','+Y(0)+' Z',
+      todayX:X(3.5).toFixed(1), todayLX:(X(3.5)+6).toFixed(1), ax:X(3.5).toFixed(1), ay:Y(6.52).toFixed(1)
+    };
+    const divData = [['ฝ่ายวิชาการ',41,9,6],['ฝ่ายพัฒนากิจการนักเรียนนักศึกษา',22,6,2],['ฝ่ายบริหารทรัพยากร',18,4,1],['ฝ่ายแผนงานและความร่วมมือ',14,3,2]];
+    const divStatus = divData.map(d => ({name:d[0],g:d[1],y:d[2],r:d[3],total:d[1]+d[2]+d[3],w:((d[1]+d[2]+d[3])/56*100).toFixed(1)+'%'}));
+    const AL = s.align==='strat'
+      ? [['ยุทธศาสตร์ที่ 1 ผลิตและพัฒนากำลังคนอาชีวศึกษา',8.42],['ยุทธศาสตร์ที่ 2 ยกระดับคุณภาพการจัดการเรียนการสอน',5.36],['ยุทธศาสตร์ที่ 3 ขยายโอกาสและความร่วมมือ',3.18],['ยุทธศาสตร์ที่ 4 พัฒนาระบบบริหารจัดการ',2.64],['ยุทธศาสตร์ที่ 5 ส่งเสริมนวัตกรรมและเทคโนโลยี',1.00]]
+      : [['มาตรฐานที่ 1 คุณลักษณะของผู้สำเร็จการศึกษา',9.86],['มาตรฐานที่ 2 การจัดการอาชีวศึกษา',7.12],['มาตรฐานที่ 3 การสร้างสังคมแห่งการเรียนรู้',3.62]];
+    const alignRows = AL.map(a => ({label:a[0],value:a[1].toFixed(2)+' ล.',w:(a[1]/AL[0][1]*100).toFixed(1)+'%'}));
+    const on = {bg:'#0F2C5C',fg:'#FFFFFF'}, off = {bg:'#FFFFFF',fg:'#1B2B45'};
+    const recentLedger = LEDGER.slice(0,5).map(l => ({...l,color:FK[l.fund].color,amtS:(l.amt>0?'+':'')+fmt(l.amt)}));
+
+    // ---- projects
+    const VIEWS = [['all','ทั้งหมด',p=>true],['acad','ฝ่ายวิชาการ',p=>p.div==='ฝ่ายวิชาการ'],['risk','สัญญาณเหลือง/แดง',p=>p.light==='yellow'||p.light==='red'],['report','รอรายงานผล',p=>p.status==='awaiting_report'],['wait','รอเงินเพิ่ม',p=>p.status==='waitlisted']];
+    const views = VIEWS.map(v => { const a = s.view===v[0]; return {label:v[1],n:PROJECTS.filter(v[2]).length,bg:a?'#0F2C5C':'#fff',fg:a?'#fff':'#1B2B45',bd:a?'#0F2C5C':'#C9D2DE',fw:a?600:400,pick:()=>this.setState({view:v[0]})}; });
+    const vf = VIEWS.find(v=>v[0]===s.view)[2]; const qq = s.q.trim().toLowerCase();
+    const pf = PROJECTS.filter(p => vf(p) && (s.stFilter==='all'||p.status===s.stFilter) && (!qq || (p.code+' '+p.name+' '+p.unit).toLowerCase().includes(qq)));
+    const plist = pf.map(p => ({...p,fc:FK[p.fund].color,fs:FK[p.fund].short,reqS:fmt(p.req),appS:p.app?fmt(p.app):'—',paidS:p.paid?fmt(p.paid):'—',st:st(p.status),lt:lt(p.light),
+      nameColor:p.code==='P70-014'?'#1D4E9E':'#18233A',cursor:p.code==='P70-014'?'pointer':'default',open:p.code==='P70-014'?()=>this.go('detail',{tab:'overview'}):undefined}));
+    const pSum = {req:fmt(pf.reduce((a,p)=>a+p.req,0)),app:fmt(pf.reduce((a,p)=>a+p.app,0)),paid:fmt(pf.reduce((a,p)=>a+p.paid,0))};
+
+    // ---- detail
+    const TABS = [['overview','ภาพรวม'],['budget','งบประมาณ'],['approval','การอนุมัติ'],['flow','ที่มาของเงิน'],['history','ประวัติ']];
+    const tabs = TABS.map(t => { const a = s.tab===t[0]; return {label:t[1],bd:a?'#0F2C5C':'transparent',fg:a?'#0F2245':'#5C6880',fw:a?600:400,pick:()=>this.setState({tab:t[0]})}; });
+    const levels = [['อนุมัติ',150000,'#D2EEEE','มติ 2/2569 + โอนเข้า RP70-003'],['อนุญาตแล้ว',105000,'#9DD5D5','2 รอบ · 70.0% ของอนุมัติ'],['ผูกพัน',72400,'#5CB8B8','ใบสั่งซื้อ 2 ฉบับ'],['จ่ายจริง',48250,'#0B7777','ฎีกา 3 ฉบับ · 32.2%']].map((l,i)=>({n:i+1,label:l[0],vS:fmt(l[1]),sw:l[2],note:l[3]}));
+    const facts = [['ลักษณะโครงการ','ต่อเนื่อง (จาก P69-021 · ปี 2569 บรรลุ 4/5 ตัวชี้วัด)'],['ระดับความจำเป็น','จำเป็นต้องทำ'],['กลุ่มเป้าหมาย','นักเรียน ปวช.3 สาขาวิชาช่างยนต์ 40 คน'],['สถานที่','ศูนย์ทดสอบมาตรฐานฝีมือแรงงาน จังหวัดตัวอย่าง'],['ยุทธศาสตร์ สอศ.','ยุทธศาสตร์ที่ 1 ผลิตและพัฒนากำลังคนอาชีวศึกษา'],['มาตรฐานการอาชีวศึกษา','มาตรฐานที่ 1 ตัวชี้วัด 1.2 ผลการทดสอบมาตรฐานวิชาชีพ'],['ปรัชญาเศรษฐกิจพอเพียง','ความมีเหตุผล · การมีภูมิคุ้มกัน']].map(f=>({k:f[0],v:f[1]}));
+    const mp = [0,0,30000,25000,25000,20000,20000,15000,15000,0,0,0], ma = [0,0,30000,18250,0,0,0,0,0,0,0,0];
+    const months = ['ต.ค.','พ.ย.','ธ.ค.','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.'].map((m,i)=>({label:m,ph:(mp[i]/30000*92)+'%',ah:(ma[i]/30000*92)+'%'}));
+    const items = [['ค่าตอบแทน','ค่าวิทยากรภายนอก','3 คน × 6 ชม.','10,800.00'],['ค่าวัสดุ','วัสดุฝึกเครื่องยนต์ดีเซล','1 ชุด','98,000.00'],['ค่าใช้สอย','ค่าธรรมเนียมทดสอบมาตรฐาน','40 คน','24,000.00'],['ค่าใช้สอย','ค่าเดินทางไปศูนย์ทดสอบ','2 เที่ยว','17,200.00']].map(x=>({cat:x[0],name:x[1],qty:x[2],total:x[3]}));
+    const R = {ok:['#D9F0E2','#13693A','#1F9D55','#D9F0E2'],info:['#E5EFFD','#1C59B5','#2F6FDB','#E5EFFD'],part:['#FBF1CF','#7E5A00','#D9A406','#FBF1CF'],wait:['#EEE8FA','#5A3EA6','#FFFFFF','#B8A6E6']};
+    const step = (act,result,tone,who,role,at,note,ref) => ({isStep:true,isGroup:false,act,result,who,role,at,note,ref,hasNote:!!note,hasRef:!!ref,bg:R[tone][0],fg:R[tone][1],dot:R[tone][2],ring:R[tone][3]});
+    const timeline = [
+      {isGroup:true,isStep:false,label:'ชั้นที่ 1 · อนุมัติเข้าแผน'},
+      step('เสนอโครงการ','ส่งแล้ว','info','ครูสมชาย แก้วมณี','ผู้เสนอ · แผนกวิชาช่างยนต์','2 ส.ค. 2569 10:15','','P70-014 ฉบับที่ 1'),
+      step('หัวหน้าแผนกวิชา','เห็นชอบ','ok','นายประเสริฐ บุญมา','หัวหน้าแผนกวิชาช่างยนต์','4 ส.ค. 2569 14:02','สอดคล้องแผนพัฒนาแผนกวิชา',''),
+      step('รองผู้อำนวยการฝ่าย','เห็นชอบ','ok','นางวรรณา ทองดี','รองผู้อำนวยการฝ่ายวิชาการ','7 ส.ค. 2569 09:30','',''),
+      step('งานแผนฯ ตรวจ','เข้าชุดพิจารณา','ok','นางสาวสมศรี ใจดี','งานวางแผนและงบประมาณ','20 ส.ค. 2569 16:45','คะแนน 89.6 · อันดับ 2 ของรอบ',''),
+      step('ที่ประชุมมีมติ','อนุมัติบางส่วน','part','คณะกรรมการบริหารสถานศึกษา','ครั้งที่ 2/2569','12 ก.ย. 2569','อนุมัติ 135,000.00 จากที่ขอ 185,000.00 ปรับลดค่าวัสดุ','มติ 2/2569 วาระ 4.3'),
+      {isGroup:true,isStep:false,label:'ชั้นที่ 2 · ขออนุญาตดำเนินโครงการ'},
+      step('ขออนุญาต รอบที่ 1 · 60,000.00','อนุญาต','ok','นายอำนาจ รุ่งเรือง','ผู้อำนวยการ','8 พ.ย. 2569 11:20','','AP70-014-1'),
+      step('ขออนุญาต รอบที่ 2 · 45,000.00','อนุญาต','ok','นายอำนาจ รุ่งเรือง','ผู้อำนวยการ','12 ม.ค. 2570 15:05','ตรวจเงินผ่าน: เงินอุดหนุนรับจริงคงเหลือเพียงพอ','AP70-014-2'),
+      step('ขออนุญาต รอบที่ 3 · 45,000.00','รอพิจารณา','wait','นายอำนาจ รุ่งเรือง','ผู้อำนวยการ','ส่งเมื่อ 13 ม.ค. 2570 · รอ 2 วัน','','AP70-014-3')
+    ];
+    const flowIn = [{label:'กองเงินอุดหนุน',color:FK.sub.color,amt:'135,000.00',ref:'จัดสรรตามมติ 2/2569 · LG70-00412'},{label:'โอนจาก P70-009',color:FK.sub.color,amt:'15,000.00',ref:'คำขอปรับแผน RP70-003 · LG70-01838'}];
+    const flowOut = [['จ่ายจริง',48250,'#0B7777','ฎีกา 0071, 0094, 0112/2570'],['ผูกพันรอจ่าย',24150,'#5CB8B8','ใบสั่งซื้อ 0291/2569'],['อนุญาตแล้วยังไม่ผูกพัน',32600,'#9DD5D5','AP70-014-1, AP70-014-2'],['ยังไม่ขออนุญาต',45000,'#C5CCD6','รอ AP70-014-3']].map(o=>({label:o[0],amt:fmt(o[1]),color:o[2],ref:o[3],w:(o[1]/150000*100).toFixed(1)+'%'}));
+    const audit = [['15 ม.ค. 2570 09:12','กนกพร มีสุข (การเงิน)','บันทึกเบิกจ่าย','ค่าวัสดุ 18,250.00 บาท · หจก.ช่างไทยอะไหล่','LG70-01842'],['13 ม.ค. 2570 15:40','ครูสมชาย แก้วมณี','ยื่นขออนุญาตรอบที่ 3','วงเงิน 45,000.00 (เงินอุดหนุน)','AP70-014-3'],['13 ม.ค. 2570 08:55','สมศรี ใจดี (งานแผนฯ)','รับโอนตามปรับแผน','วงเงินอนุมัติ 135,000.00 → 150,000.00','RP70-003'],['12 ม.ค. 2570 15:05','อำนาจ รุ่งเรือง (ผอ.)','อนุญาตรอบที่ 2','45,000.00 · ตรวจเงินผ่าน','AP70-014-2'],['5 ธ.ค. 2569 10:30','วิชัย พงษ์ไทย (พัสดุ)','บันทึกผูกพัน','ใบสั่งซื้อ 0291/2569 · 72,400.00','LG70-00987'],['12 ก.ย. 2569 17:20','สมศรี ใจดี (งานแผนฯ)','บันทึกผลตามมติ','วงเงิน 185,000.00 → 135,000.00 · อนุมัติบางส่วน','มติ 2/2569'],['2 ส.ค. 2569 10:15','ครูสมชาย แก้วมณี','สร้างและเสนอโครงการ','ยอดขอ 185,000.00','P70-014']].map(a=>({at:a[0],who:a[1],act:a[2],detail:a[3],ref:a[4]}));
+
+    // ---- scenario
+    const w = s.w, wSum = w.reduce((a,b)=>a+b,0);
+    const effCap = {}; Object.keys(CAP).forEach(k => effCap[k] = CAP[k]*(1-s.drop/100));
+    const sorted = SCN.map(r => ({r, sc:scoreOf(r,w), dc:s.dec[r.code]})).sort((a,b)=>b.sc-a.sc);
+    const used = {bud:0,sub:0,inc:0,don:0}, cum = {bud:0,sub:0,inc:0,don:0};
+    sorted.forEach(x => used[x.r.fund] += x.dc.g);
+    let dropN = 0, dropAmt = 0;
+    const DS = {full:['#D9F0E2','#13693A','#9BD3B0'],partial:['#E5EFFD','#1C59B5','#A9C6F0'],phase1:['#E5EFFD','#1C59B5','#A9C6F0'],wait:['#FBF1CF','#7E5A00','#E8D27F'],reject:['#EDEFF3','#465166','#C9D2DE']};
+    const LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4', UNLOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.9-1';
+    const srows = sorted.map((x,i) => {
+      const r = x.r, dc = x.dc;
+      let dropping = false;
+      if (dc.g > 0) { cum[r.fund] += dc.g; if (s.drop > 0 && cum[r.fund] > effCap[r.fund] + 0.01) { dropping = true; dropN++; dropAmt += dc.g; } }
+      const N = NEED[r.need], D = DS[dc.d], sel = !!s.sel[r.code];
+      return {
+        code:r.code, name:r.name, unit:r.unit, rank:i+1, scoreS:x.sc.toFixed(1), scoreW:x.sc.toFixed(0)+'%',
+        fc:FK[r.fund].color, fs:FK[r.fund].short, nl:N[0], nb:N[1], nf:N[2], reqS:fmt0(r.req), minS:fmt0(r.min),
+        d:dc.d, g:dc.g, gS: dc.g ? fmt0(dc.g) : '—', isPartial: dc.d==='partial', notPartial: dc.d!=='partial', belowMin: dc.g>0 && dc.g<r.min, l:dc.l,
+        dbg:D[0], dfg:D[1], dbd:D[2], sel,
+        rowBg: sel ? '#EEF3FB' : (s.drawer===r.code ? '#F5F8FD' : '#FFFFFF'), op: dropping ? .45 : 1, tdec: dropping ? 'line-through' : 'none',
+        lockI: dc.l ? LOCK : UNLOCK, lockT: dc.l ? 'ปลดล็อก' : 'ล็อกผลพิจารณา', lbg: dc.l ? '#0F2C5C' : '#FFFFFF', lfg: dc.l ? '#FFFFFF' : '#8A96A8', lbd: dc.l ? '#0F2C5C' : '#D5DBE4',
+        onSel: () => this.setState(z => ({sel:{...z.sel,[r.code]:!z.sel[r.code]}})),
+        onDec: e => this.setDec(r.code, e.target.value),
+        onG: e => { const v = Math.max(0, Math.min(r.req, +e.target.value || 0)); this.commit(z => ({dec:{...z.dec,[r.code]:{...z.dec[r.code],g:v}}})); },
+        onLock: () => this.commit(z => ({dec:{...z.dec,[r.code]:{...z.dec[r.code],l:!z.dec[r.code].l}}})),
+        open: () => this.setState({drawer:r.code})
+      };
+    });
+    const fundStatus = FUNDS.map(f => { const cap = effCap[f.key], u = used[f.key], rem = cap - u, over = rem < 0;
+      return {name:f.name,color:f.color,capS:fmt0(cap),usedS:fmt0(u),remS:fmt0(rem),remC: over ? '#B42323' : '#13693A',
+        w:Math.min(100,u/cap*100).toFixed(1)+'%', barC: over ? '#D23C3C' : f.color, bd: over ? '#F2B8B8' : '#E1E6EE', bg: over ? '#FDF3F3' : '#FFFFFF',
+        capNote: s.drop>0 ? 'รายรับ −'+s.drop+'%' : (over ? 'เกินวงเงิน' : '')}; });
+    const selCodes = Object.keys(s.sel).filter(k => s.sel[k]);
+    const dsel = s.drawer && SCK[s.drawer];
+    let dw = {crit:[],items:[]};
+    if (dsel) { const N = NEED[dsel.need];
+      dw = {code:dsel.code,name:dsel.name,unit:dsel.unit,nl:N[0],nb:N[1],nf:N[2],fc:FK[dsel.fund].color,fn:FK[dsel.fund].name,
+        reqS:fmt(dsel.req),minS:fmt(dsel.min),gS:fmt(s.dec[dsel.code].g),why:dsel.why,impact:dsel.impact,last:dsel.last,scoreS:scoreOf(dsel,w).toFixed(1),
+        crit:CRIT.map((c,i)=>({label:c,v:dsel.c[i],w:w[i]})),
+        items:[['ค่าวัสดุ',.6],['ค่าใช้สอย',.25],['ค่าตอบแทน',.15]].map(x=>({k:x[0],v:fmt(dsel.req*x[1])}))}; }
+    const gTot = srows.reduce((a,r)=>a+r.g,0);
+    const distRows = DIVS.map(d => { const a = sorted.filter(x=>x.r.div===d[0]).reduce((t,x)=>t+x.dc.g,0)/(gTot||1)*100;
+      return {label:d[1],aS:a.toFixed(0)+'%',lS:d[2]+'%',aW:a.toFixed(1)+'%',lW:d[2]+'%'}; });
+
+    // ---- replan
+    const RPT = [['detail','แก้รายละเอียด','ไม่กระทบวงเงิน'],['item','เปลี่ยนรายการ/หมวด','ภายในโครงการเดิม'],['split','แยกโครงการ','หนึ่งต้นทาง → หลายปลายทาง'],['merge','รวมโครงการ','หลายต้นทาง → หนึ่งปลายทาง'],['change','เปลี่ยนโครงการ','โอนเงินไปโครงการอื่น'],['increase','ขอเพิ่มวงเงิน','ใช้เงินจากกองโดยตรง']];
+    const rpTypes = RPT.map(t => { const a = s.rpType===t[0]; return {label:t[1],desc:t[2],bd:a?'#0F2C5C':'#E1E6EE',bg:a?'#EEF3FB':'#FFFFFF',pick:()=>this.setState({rpType:t[0]})}; });
+    const SRC = [
+      {code:'P70-022',name:'ปรับปรุงระบบเครือข่ายไร้สายอาคารเรียน 3',fund:'inc',app:420000,usedLabel:'ราคาที่จัดหาได้',used:260000,tr:160000,note:'ประกวดราคาได้ต่ำกว่าวงเงิน · ใบเสนอราคา 0412/2570'},
+      {code:'P70-061',name:'จัดซื้อครุภัณฑ์สำนักงานงานทะเบียน',fund:'bud',app:90000,usedLabel:'จ่ายจริงแล้ว',used:35000,tr:55000,note:'จัดซื้อครบตามความต้องการแล้ว'}
+    ];
+    const give = {}, take = {};
+    const srcRows = SRC.map(x => { const amt = +s.src[x.code] || 0, err = amt > x.tr; give[x.fund] = (give[x.fund]||0) + amt;
+      return {code:x.code,name:x.name,color:FK[x.fund].color,fname:FK[x.fund].name,appS:fmt(x.app),usedLabel:x.usedLabel,usedS:fmt(x.used),trS:fmt(x.tr),note:x.note,amt,err,overS:fmt(amt-x.tr),
+        bd: err ? '#F2B8B8' : '#E1E6EE', ibd: err ? '#D23C3C' : '#C9D2DE',
+        on: e => { const v = Math.max(0, +e.target.value || 0); this.setState(z => ({src:{...z.src,[x.code]:v}})); },
+        all: () => this.setState(z => ({src:{...z.src,[x.code]:x.tr}}))}; });
+    const dstRows = ['inc','bud'].map(k => { const amt = +s.dst[k] || 0; take[k] = amt;
+      return {name:FK[k].name,color:FK[k].color,amt,on:e=>{ const v = Math.max(0, +e.target.value || 0); this.setState(z => ({dst:{...z.dst,[k]:v}})); }}; });
+    const fkeys = FUNDS.map(f=>f.key).filter(k => give[k] || take[k]);
+    let extra = 0, ret = 0;
+    const deltaRows = fkeys.map(k => { const g = give[k]||0, t = take[k]||0, d = t - g; if (d>0) extra += d; else ret += -d;
+      return {name:FK[k].name,color:FK[k].color,giveS:fmt(g),takeS:fmt(t),deltaS:(d>0?'+':'')+fmt(d),c: d>0 ? '#A84A0C' : '#13693A',
+        label: d>0 ? 'ใช้งบเพิ่ม' : (d<0 ? 'คืนกอง '+fmt(-d) : 'ผ่าน'), bg: d>0 ? '#FDECDF' : '#D9F0E2', fg: d>0 ? '#A84A0C' : '#13693A'}; });
+    const ef = fx.find(f=>f.key===s.extraFund) || fx[2];
+    const srcErr = srcRows.some(r=>r.err), reasonMissing = extra>0 && !s.reason.trim();
+    // sankey
+    const Ln = [], Rn = [], lk = [], getR = (id, mk) => { let n = Rn.find(z=>z.id===id); if (!n) { n = mk(); Rn.push(n); } return n; };
+    SRC.forEach(x => { const a = +s.src[x.code]||0; if (a>0) Ln.push({id:x.code,label:x.code,sub:'ให้ '+fmt0(a)+' · '+FK[x.fund].short,amt:a,color:FK[x.fund].color,fund:x.fund}); });
+    fkeys.forEach(k => { if (take[k]>0) getR('d'+k, () => ({id:'d'+k,label:'ปลายทาง · '+FK[k].short,sub:'รับ '+fmt0(take[k]),amt:take[k],color:FK[k].color})); });
+    fkeys.forEach(k => { let T = take[k]||0;
+      Ln.filter(n=>n.fund===k).forEach(n => { const u = Math.min(n.amt, T); if (u>0) lk.push([n.id,'d'+k,u,n.color]); T -= u; const left = n.amt - u;
+        if (left>0) { const r = getR('r'+k, () => ({id:'r'+k,label:'คืนกอง'+FK[k].short,sub:'',amt:0,color:'#9AA6B8'})); r.amt += left; r.sub = fmt0(r.amt)+' บาท'; lk.push([n.id,'r'+k,left,'#9AA6B8']); } });
+      if (T>0) { Ln.push({id:'x'+k,label:'ใช้งบเพิ่ม',sub:fmt0(T)+' · '+ef.short,amt:T,color:'#C2410C'}); lk.push(['x'+k,'d'+k,T,'#C2410C']); } });
+    const GAP = 26, AV = 200, sumL = Ln.reduce((a,n)=>a+n.amt,0)||1, sumR = Rn.reduce((a,n)=>a+n.amt,0)||1;
+    const sc = Math.min((AV - GAP*Math.max(0,Ln.length-1))/sumL, (AV - GAP*Math.max(0,Rn.length-1))/sumR);
+    const place = (arr, x, left) => { let y = 14; arr.forEach(n => { n.h = Math.max(3, n.amt*sc); n.y = y; n.off = 0; n.x = x; y += n.h + GAP;
+      n.tx = left ? x - 8 : x + 20; n.anchor = left ? 'end' : 'start'; n.ty1 = (n.y + n.h/2 - 2).toFixed(1); n.ty2 = (n.y + n.h/2 + 12).toFixed(1); }); };
+    place(Ln, 200, true); place(Rn, 390, false);
+    const links = lk.map(([a,b,v,c]) => { const A = Ln.find(n=>n.id===a), B = Rn.find(n=>n.id===b); const h = v*sc, y0 = A.y + A.off, y1 = B.y + B.off; A.off += h; B.off += h;
+      const x0 = 212, x1 = 390, xm = 301;
+      return {color:c, d:`M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1+h} C${xm},${y1+h} ${xm},${y0+h} ${x0},${y0+h} Z`}; });
+    const sk = {links, nodes:[...Ln,...Rn].map(n => ({x:n.x,y:n.y.toFixed(1),h:n.h.toFixed(1),color:n.color,label:n.label,sub:n.sub,tx:n.tx,anchor:n.anchor,ty1:n.ty1,ty2:n.ty2}))};
+
+    // ---- funds & ledger
+    const fundCards = fx.map(f => { const diff = f.recv - f.estTD, mx = Math.max(f.recv, f.estTD)*1.08, open = !!s.openSubs[f.key];
+      return {name:f.name,code:f.code,color:f.color,actS:fmt(f.availAct),estS:fmt(f.availEst),actC: f.availAct<0 ? '#B42323' : '#0F2245',
+        diffS:(diff>0?'+':'')+fmt(diff), diffC: diff<0 ? '#A84A0C' : '#13693A', recvW:(f.recv/mx*100).toFixed(1)+'%', estW:(f.estTD/mx*100).toFixed(1)+'%',
+        metrics:[['ยกมา',f.carry],['ประมาณการ',f.est],['รับจริง',f.recv],['ส่วนต่าง',diff],['กันไว้',f.reserve],['จัดสรร',f.alloc],['ผูกพัน',f.committed],['จ่าย',f.paid]].map(m=>({k:m[0],v:(m[0]==='ส่วนต่าง'&&m[1]>0?'+':'')+fmt(m[1])})),
+        hasSubs:f.subs.length>0, noSubs:f.subs.length===0, subCount:f.subs.length, open, rot: open ? 'rotate(90deg)' : 'none',
+        subs:f.subs.map(x=>({k:x[0],v:fmt(x[1])})),
+        toggle:()=>this.setState(z=>({openSubs:{...z.openSubs,[f.key]:!z.openSubs[f.key]}})),
+        filter:()=>this.setState({ledgerFund:f.key})}; });
+    const chipList = [{key:'all',label:'ทุกกอง',color:'#0F2C5C'},...FUNDS.map(f=>({key:f.key,label:f.short,color:f.color}))];
+    const ledgerChips = chipList.map(c => { const a = s.ledgerFund===c.key; return {label:c.label,color:c.color,bd:a?'#0F2C5C':'#C9D2DE',bg:a?'#EEF3FB':'#FFFFFF',fg:a?'#0F2245':'#1B2B45',pick:()=>this.setState({ledgerFund:c.key})}; });
+    const TY = {'รับเงิน':['#D9F0E2','#13693A'],'จ่ายจริง':['#DAE6FA','#16469A'],'ผูกพัน':['#E5EFFD','#1C59B5'],'จัดสรร':['#EEE8FA','#5A3EA6'],'โอนตามปรับแผน':['#FDECDF','#A84A0C'],'กลับรายการ':['#EDEFF3','#465166'],'อนุญาตใช้เงิน':['#E5EFFD','#1C59B5']};
+    const lq = s.ledgerQ.trim().toLowerCase();
+    const ledgerRows = LEDGER.filter(l => (s.ledgerFund==='all'||l.fund===s.ledgerFund) && (s.ledgerType==='all'||l.type===s.ledgerType) && (!lq || (l.id+' '+l.flow+' '+l.ref).toLowerCase().includes(lq))).map(l => ({
+      ...l, color:FK[l.fund].color, fs:FK[l.fund].short, tb:TY[l.type][0], tf:TY[l.type][1], amtS:(l.amt>0?'+':'')+fmt(l.amt),
+      ac: l.amt>0 ? '#13693A' : '#18233A', isReversed:!!l.reversedBy, isReversal:!!l.reverses,
+      tdec: l.reversedBy ? 'line-through' : 'none', txc: l.reversedBy ? '#8A96A8' : '#18233A', bg: l.reversedBy ? '#FAFBFC' : '#FFFFFF',
+      jump: () => this.setState({ledgerQ:(l.reversedBy||l.reverses), ledgerFund:'all', ledgerType:'all'})
+    }));
+
+    return {
+      isReplan: s.page==='replan', rpTypes, srcRows, dstRows, deltaRows, sk,
+      giveTotal: fmt(Object.values(give).reduce((a,b)=>a+b,0)), takeTotal: fmt(Object.values(take).reduce((a,b)=>a+b,0)),
+      hasExtra: extra>0, noExtra: extra<=0, extraS: fmt(extra), extraFund: s.extraFund, onExtraFund: e => this.setState({extraFund:e.target.value}),
+      efName: ef.name, efAvailS: fmt(ef.availAct), efAfterS: fmt(ef.availAct - extra), efAfterC: ef.availAct - extra < 0 ? '#B42323' : '#5A2604',
+      retText: ret>0 ? 'เงินเหลือจ่าย '+fmt(ret)+' บาทคืนกอง' : 'ยอดให้และรับเท่ากันทุกกองเงิน',
+      reason: s.reason, onReason: e => this.setState({reason:e.target.value}), reasonErr: s.triedSubmit && reasonMissing, reasonBd: s.triedSubmit && reasonMissing ? '#D23C3C' : '#E8C4A4',
+      submitOp: (srcErr || reasonMissing) ? .55 : 1, rpSubmitted: s.submitted,
+      submitReplan: () => (srcErr || reasonMissing) ? this.setState({triedSubmit:true}) : this.setState({submitted:true, triedSubmit:false}),
+      isDstNew: s.dstMode==='new', isDstExisting: s.dstMode==='existing', dm1: s.dstMode==='existing'?on:off, dm2: s.dstMode==='new'?on:off,
+      dstNew: () => this.setState({dstMode:'new'}), dstExisting: () => this.setState({dstMode:'existing'}),
+      isFundsOrLedger: s.page==='funds' || s.page==='ledger', showFundCards: s.page==='funds', fundsTitle: s.page==='funds' ? 'ภาพรวมกองเงิน' : 'สมุดบัญชี',
+      fundCards, ledgerChips, ledgerRows, ledgerCount: ledgerRows.length, ledgerEmpty: ledgerRows.length===0,
+      ledgerQ: s.ledgerQ, onLedgerQ: e => this.setState({ledgerQ:e.target.value}), ledgerType: s.ledgerType, onLedgerType: e => this.setState({ledgerType:e.target.value}),
+      isScenario: s.page==='scenario', srows, fundStatus, scnName: s.scnName, dw, drawerOpen: !!dsel, distRows,
+      closeDrawer: () => this.setState({drawer:null}),
+      scnCount: SCN.length, passCount: srows.filter(r=>r.g>0).length, grantedTotal: fmt(gTot), reqTotal: fmt(SCN.reduce((a,r)=>a+r.req,0)),
+      hasSel: selCodes.length>0, noSel: selCodes.length===0, selCount: selCodes.length, allSel: selCodes.length===SCN.length, bulk: s.bulk,
+      toggleAll: () => this.setState(z => { const all = Object.keys(z.sel).filter(k=>z.sel[k]).length===SCN.length; const o = {}; if (!all) SCN.forEach(r=>o[r.code]=true); return {sel:o}; }),
+      clearSel: () => this.setState({sel:{}}), onBulk: e => this.setState({bulk:e.target.value}),
+      applyBulk: () => { const d = this.state.bulk; this.commit(z => { const dec = {...z.dec}; Object.keys(z.sel).filter(k=>z.sel[k]).forEach(k => { const r = SCK[k], c = dec[k]; if (c.l) return; const g = d==='full'?r.req:(d==='partial'||d==='phase1')?r.min:0; dec[k] = {...c,d,g}; }); return {dec, sel:{}}; }); },
+      undo: () => this.undo(), redo: () => this.redo(), undoC: s.hist.length ? '#1B2B45' : '#B5BECB', redoC: s.fut.length ? '#1B2B45' : '#B5BECB',
+      histLabel: s.hist.length ? 'แก้ไข '+s.hist.length+' ครั้ง' : 'ยังไม่มีการแก้ไข',
+      wSum, wBad: wSum!==100, wBadge: wSum===100 ? {bg:'#D9F0E2',fg:'#13693A'} : {bg:'#FDECEC',fg:'#B42323'},
+      wRows: CRIT.map((c,i)=>({label:c,v:w[i],on:e=>{ const v = +e.target.value; this.commit(z=>({w:z.w.map((x,j)=>j===i?v:x)})); }})),
+      resetW: () => this.commit(() => ({w:W0})),
+      doAutofill: () => this.commit(z => ({dec:autofill(z.w, z.dec)})),
+      cut: s.cut, onCut: e => this.setState({cut: Math.max(1, Math.min(50, +e.target.value || 1))}),
+      applyCut: () => { const pc = this.state.cut; this.commit(z => { const dec = {}; Object.keys(z.dec).forEach(k => { const c = z.dec[k], r = SCK[k]; if (c.l || !c.g) { dec[k] = c; return; } const g = Math.round(c.g*(1-pc/100)/100)*100; dec[k] = {...c, g, d: g>=r.req ? 'full' : 'partial'}; }); return {dec}; }); },
+      drop: s.drop, onDrop: e => this.setState({drop:+e.target.value}), dropC: s.drop ? '#B42323' : '#5C6880',
+      dropText: s.drop===0 ? 'เลื่อนเพื่อจำลองว่าหากรายรับจริงต่ำกว่าประมาณการ โครงการใดจะหลุดก่อน (เรียงจากคะแนนต่ำสุดในแต่ละกอง)' : (dropN ? dropN+' โครงการจะหลุด รวม '+fmt(dropAmt)+' บาท · แสดงเป็นแถวจางและขีดฆ่า' : 'ทุกโครงการยังได้รับเงินครบ แม้รายรับลดลง '+s.drop+'%'),
+      dropBox: dropN ? {bg:'#FDECEC',fg:'#8E1F1F'} : {bg:'#F6F8FB',fg:'#33415A'},
+      onScn: e => { const k = e.target.value; this.commit(() => {
+        if (k==='C') { const wc = [25,40,15,10,10]; return {scnName:k, w:wc, dec:autofill(wc, {'P70-011':{d:'full',g:240000,l:true}})}; }
+        const dec = autofill(W0, {'P70-011':{d:'full',g:240000,l:true}});
+        if (k==='B') Object.keys(dec).forEach(c => { const d = dec[c]; if (!d.l && d.g) { const g = Math.round(d.g*0.9/100)*100; dec[c] = {...d, g, d:'partial'}; } });
+        return {scnName:k, w:W0, dec}; }); },
+      isProjects: s.page==='projects', views, plist, pSum, plistCount: plist.length, plistEmpty: plist.length===0, q: s.q, stFilter: s.stFilter,
+      onQ: e => this.setState({q:e.target.value}), onSt: e => this.setState({stFilter:e.target.value}),
+      clearFilters: () => this.setState({q:'',stFilter:'all',view:'all'}),
+      isDetail: s.page==='detail', tabs, levels, facts, months, items, timeline, flowIn, flowOut, audit,
+      tabOverview: s.tab==='overview', tabBudget: s.tab==='budget', tabApproval: s.tab==='approval', tabFlow: s.tab==='flow', tabHistory: s.tab==='history',
+      sideW: expanded ? '256px' : '72px', expanded, nav,
+      toggleSide: () => this.setState(x => ({collapsed:!x.collapsed})),
+      isDashboard: s.page==='dashboard',
+      dashContent: dashState==='normal' || dashState==='warning',
+      dashWarning: dashState==='warning', dashError: dashState==='error', dashEmpty: dashState==='empty', dashLoading: dashState==='loading',
+      four:[1,2,3,4], fundChips: FUNDS, kpis, fundRows, todos, chart, divStatus, alignRows, recentLedger,
+      alignBtn1: s.align==='strat'?on:off, alignBtn2: s.align==='std'?on:off,
+      setAlignStrat: () => this.setState({align:'strat'}), setAlignStd: () => this.setState({align:'std'}),
+      goScenario: () => this.go('scenario'), goReplan: () => this.go('replan'), goLedger: () => this.go('ledger',{ledgerFund:'all'}), goLedgerDon: () => this.go('ledger',{ledgerFund:'don'}),
+      goProjects: () => this.go('projects'), goDetail: () => this.go('detail',{tab:'overview'}), goFunds: () => this.go('funds')
+    };
+  }
+}
+</script>
+</body>
+</html>
