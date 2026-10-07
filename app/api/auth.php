@@ -58,4 +58,24 @@ return [
         audit('auth.password_change', 'user', (int)$u['id']);
         return ['ok' => true];
     },
+
+    // Profile picture of a user of the same institution (uploads/ is not web-accessible).
+    'GET avatar' => function () {
+        $me = require_login();
+        $st = db()->prepare('SELECT institution_id, avatar_path FROM users WHERE id = ?');
+        $st->execute([(int)($_GET['id'] ?? 0)]);
+        $u = $st->fetch();
+        if (!$u || !$u['avatar_path'] || ((int)$u['institution_id'] !== (int)$me['institution_id'] && !is_super_admin($me))) fail('ไม่พบรูป', 404);
+        $path = UPLOAD_DIR . '/' . $u['avatar_path'];
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = array_search($ext, RmsSync::AVATAR_MIME, true);
+        if (!$mime || str_contains($u['avatar_path'], '..') || !is_file($path)) fail('ไม่พบรูป', 404);
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($path));
+        // The URL carries a version token, so the browser may keep it.
+        header('Cache-Control: private, max-age=604800');
+        header("Content-Security-Policy: default-src 'none'");
+        readfile($path);
+        exit;
+    },
 ];

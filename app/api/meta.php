@@ -51,7 +51,8 @@ return [
             'fiscal_year' => ['id' => (int)$fy['id'], 'year_be' => (int)$fy['year_be'], 'starts_on' => $fy['starts_on'], 'ends_on' => $fy['ends_on'],
                 'status' => $fy['status'], 'baseline_locked_at' => $fy['baseline_locked_at'], 'settings' => $fy['settings']],
             'fiscal_years' => $q('SELECT id, year_be, starts_on, ends_on, status, baseline_locked_at FROM fiscal_years WHERE institution_id = ? ORDER BY year_be DESC'),
-            'user' => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'position_title' => $u['position_title'], 'roles' => $roles],
+            'user' => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'position_title' => $u['position_title'], 'roles' => $roles,
+                'avatar' => user_avatar((int)$u['id'])],
             'permissions' => Access::permissions($fyId) + ['system' => $tenancy['system_admin'], 'audit' => has_role('admin', $fyId),
                 // Single mode: the system admin sees the page that switches to multi-institution mode.
                 'institutions' => !is_multi() && $tenancy['system_admin'], 'ai_config' => has_role('admin', $fyId)],

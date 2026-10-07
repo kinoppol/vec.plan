@@ -195,6 +195,18 @@ function Icon({ name, size = 18, stroke = 1.75, style }) {
 function Badge({ bg, fg, children, title, style }) {
   return <span className="badge" title={title} style={{ background: bg, color: fg, ...style }}>{children}</span>;
 }
+/** Profile picture (transferred from RMS) or the name's initials when there is none. */
+function Avatar({ user, size }) {
+  const [broken, setBroken] = useState(false);
+  const st = size ? { width: size, height: size, fontSize: Math.round(size * 0.38) } : undefined;
+  return (
+    <div className="avatar" style={st}>
+      {user.avatar && !broken
+        ? <img src={BOOT.base + 'api/?r=auth/avatar&id=' + user.id + '&v=' + user.avatar} alt="" loading="lazy" onError={() => setBroken(true)} />
+        : initials(user.name)}
+    </div>
+  );
+}
 function StatusBadge({ status }) {
   const s = PROJECT_STATUS[status] || [status, '#EDEFF3', '#465166'];
   return <Badge bg={s[1]} fg={s[2]}>{s[0]}</Badge>;
@@ -358,6 +370,6 @@ Object.assign(window, {
   TH_MONTHS, FISCAL_MONTHS, QUARTERS, fmt, fmtSigned, fmt0, fmtM, pct, thDate, quarterText, initials, parseMoney,
   PROJECT_STATUS, HEALTH, LEDGER_TYPE_TONE, FUND_TYPE_LABEL, PERMIT_RULE_LABEL,
   ApiErr, apiState, apiUrl, api, post, download, useApi, AppCtx, useApp, buildFunds, buildUnits,
-  Icon, Badge, StatusBadge, HealthDot, TypeBadge, FundTag, Alert, Empty, Skeleton, LoadError, PageHead, Field, MoneyInput,
+  Icon, Badge, Avatar, StatusBadge, HealthDot, TypeBadge, FundTag, Alert, Empty, Skeleton, LoadError, PageHead, Field, MoneyInput,
   ThaiDateInput, Modal, useBusy, Pager,
 });

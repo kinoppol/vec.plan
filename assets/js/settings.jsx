@@ -26,7 +26,7 @@ function SettingsPage() {
       <PageHead crumb="ตั้งค่า" title="ข้อมูลหลักของระบบ" />
       {readOnly && <Alert tone="blue">ผู้ดูแลระบบแก้ไขได้เฉพาะชื่อสถานศึกษาและปีงบประมาณปัจจุบัน — ข้อมูลหลักอื่นแก้ไขโดยงานวางแผนและงบประมาณ</Alert>}
       <div className="row" style={{ gap: 2, borderBottom: '1px solid var(--chip-line)', overflowX: 'auto' }} role="tablist">
-        {SETTINGS_TABS.map(([k, l]) => (
+        {SETTINGS_TABS.concat(meta.permissions.admin ? [['rms', 'ข้อมูลผู้ใช้จาก RMS']] : []).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
             style={{ height: 42, padding: '0 16px', border: 0, background: 'transparent', fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap', marginBottom: -1,
               borderBottom: '2px solid ' + (tab === k ? 'var(--navy)' : 'transparent'), color: tab === k ? 'var(--heading)' : 'var(--muted)', fontWeight: tab === k ? 600 : 400 }}>{l}</button>
@@ -40,6 +40,7 @@ function SettingsPage() {
       {data && tab === 'categories' && <CategorySettings data={data} readOnly={readOnly} onEdit={setEdit} />}
       {data && tab === 'alignment' && <AlignmentSettings data={data} readOnly={readOnly} onEdit={setEdit} />}
       {data && tab === 'chains' && <ChainSettings data={data} readOnly={readOnly} save={save} />}
+      {tab === 'rms' && meta.permissions.admin && <RmsSettings />}
       {edit && <SettingsEditor edit={edit} data={data} onClose={() => setEdit(null)} save={save} />}
     </div>
   );
@@ -376,4 +377,90 @@ function SettingsEditor({ edit, data, onClose, save }) {
   );
 }
 
-Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor });
+// ------------------------------------------------------------------ users from RMS (institution admin)
+function RmsSettings() {
+  const { toast } = useApp();
+  const { data, error, loading, reload } = useApi('users/rms');
+  const [base, setBase] = useState('');
+  const [result, setResult] = useState(null);
+  const [busy, run] = useBusy();
+  const [busyText, setBusyText] = useState('');
+  useEffect(() => { if (data) setBase(data.base_url || ''); }, [data]);
+  if (error) return <LoadError error={error} onRetry={reload} />;
+  if (loading || !data) return <Skeleton rows={4} />;
+  const dirty = base.replace(/\/+$/, '') !== (data.base_url || '');
+  const saveBase = () => run(async () => {
+    try { await post('users/rms_save', { base_url: base }); toast('บันทึก URL ของระบบ RMS แล้ว', 'ok'); reload(); }
+    catch (e) { toast(e.message, 'err'); }
+  });
+  const go = dry => run(async () => {
+    if (!dry && !window.confirm('โอนข้อมูลผู้ใช้จาก RMS เข้าระบบตอนนี้?\nผู้ใช้เดิม (people_id ตรงกัน) จะถูกปรับชื่อ อีเมล รหัสผ่าน และรูปโปรไฟล์ตาม RMS')) return;
+    setResult(null);
+    setBusyText(dry ? 'กำลังอ่านข้อมูลจาก RMS…' : 'กำลังโอนข้อมูลและดาวน์โหลดรูปโปรไฟล์… อาจใช้เวลาหลายนาที');
+    try {
+      const r = await post(dry ? 'users/rms_preview' : 'users/rms_sync');
+      setResult({ ...r, dry });
+      if (!dry) toast('โอนข้อมูลผู้ใช้เรียบร้อย', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+    finally { setBusyText(''); }
+  });
+  const R = result;
+  return (
+    <div className="stack">
+      <div className="card card-b stack">
+        <h3 className="h">แหล่งข้อมูลผู้ใช้ (ระบบ RMS)</h3>
+        <Field label="URL ของระบบ RMS ของสถานศึกษา" hint="เฉพาะส่วนต้นของที่อยู่ เช่น http://rms.rvc.ac.th — แต่ละสถานศึกษาตั้งค่าแยกกัน">
+          <div className="row" style={{ gap: 8 }}>
+            <input className="input mono grow" value={base} onChange={e => setBase(e.target.value)} placeholder="http://rms.ชื่อวิทยาลัย.ac.th" />
+            <button className="btn primary" onClick={saveBase} disabled={busy || !dirty || !base.trim()}>บันทึก</button>
+          </div>
+        </Field>
+        <div className="xs muted" style={{ lineHeight: 1.7 }}>
+          ข้อมูลผู้ใช้: <span className="mono">{(base.replace(/\/+$/, '') || '{URL}') + data.people_path}</span><br />
+          รูปโปรไฟล์: <span className="mono">{(base.replace(/\/+$/, '') || '{URL}') + data.files_path + '{people_pic}'}</span>
+        </div>
+      </div>
+
+      <div className="card card-b stack">
+        <h3 className="h">โอนข้อมูลผู้ใช้</h3>
+        <ul className="sm" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.75 }}>
+          <li>โอนเฉพาะผู้ใช้ที่ <span className="mono">people_exit = 0</span></li>
+          <li><span className="mono">people_id</span> → ชื่อผู้ใช้ · <span className="mono">people_name + people_surname</span> → ชื่อ · <span className="mono">people_email</span> → อีเมล</li>
+          <li><span className="mono">ath_pass</span> → รหัสผ่าน (เข้ารหัสก่อนเก็บ) · ถ้า RMS ไม่ส่งรหัสผ่านมา ผู้ใช้ใหม่จะยังเข้าระบบไม่ได้จนกว่าผู้ดูแลรีเซ็ตรหัสผ่าน</li>
+          <li><span className="mono">people_pic</span> → ดาวน์โหลดเป็นรูปโปรไฟล์ · ผู้ที่ไม่มีรูปแสดงอักษรย่อตามเดิม</li>
+          <li>โอนซ้ำได้: ผู้ใช้เดิมถูกปรับข้อมูลตาม RMS โดยไม่เปลี่ยนวันที่สร้างบัญชี บทบาท และสถานะการใช้งาน · บทบาทต้องกำหนดเองที่หน้าผู้ใช้และบทบาท</li>
+        </ul>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => go(true)} disabled={busy || dirty || !data.base_url}>ตรวจสอบข้อมูล (ยังไม่บันทึก)</button>
+          <button className="btn primary" onClick={() => go(false)} disabled={busy || dirty || !data.base_url}><Icon name="download" size={16} />โอนข้อมูลผู้ใช้</button>
+          {dirty && <span className="xs" style={{ color: 'var(--orange-fg)' }}>บันทึก URL ก่อนโอนข้อมูล</span>}
+        </div>
+        {busyText && <Alert tone="blue">{busyText}</Alert>}
+        {R && (
+          <Fragment>
+            <Alert tone={R.dry ? 'blue' : 'green'} title={R.dry ? 'ผลการตรวจสอบ (ยังไม่ได้บันทึก)' : 'โอนข้อมูลเรียบร้อย'}>
+              ข้อมูลใน RMS {R.total} คน · ออกแล้ว (people_exit ≠ 0) {R.exited} คน
+            </Alert>
+            <div className="ai-rms-stats">
+              {[[R.dry ? 'จะเพิ่มใหม่' : 'เพิ่มใหม่', R.created], [R.dry ? 'จะปรับข้อมูล' : 'ปรับข้อมูล', R.updated], ['ข้าม', R.skipped],
+                ['มีรูปโปรไฟล์', R.with_picture], ...(R.dry ? [] : [['ดาวน์โหลดรูป', R.avatars], ['เปลี่ยนรหัสผ่าน', R.password_updated]]),
+                ['ผู้ใช้ใหม่ที่ไม่มีรหัสผ่าน', R.no_password]].map(([l, v]) => (
+                <div key={l} className="card" style={{ padding: '10px 12px' }}><div className="xs muted">{l}</div><div style={{ fontSize: 20, fontWeight: 600, color: 'var(--heading)' }}>{fmt0(v)}</div></div>
+              ))}
+            </div>
+            {R.no_password > 0 && <Alert tone="yellow">ข้อมูลจาก RMS ไม่มี ath_pass สำหรับผู้ใช้ใหม่ {R.no_password} คน — บัญชีเหล่านี้ยังเข้าระบบไม่ได้ ให้รีเซ็ตรหัสผ่านที่หน้าผู้ใช้และบทบาท หรือให้ RMS ส่ง ath_pass มาแล้วโอนอีกครั้ง</Alert>}
+            {R.avatar_errors > 0 && <Alert tone="yellow">ดาวน์โหลดรูปไม่สำเร็จ {R.avatar_errors} คน — โอนอีกครั้งเพื่อลองใหม่</Alert>}
+            {R.notes.length > 0 && (
+              <div className="table-wrap"><table className="tbl">
+                <thead><tr><th>ผู้ใช้</th><th>หมายเหตุ</th></tr></thead>
+                <tbody>{R.notes.map((n, i) => <tr key={i}><td className="sm">{n.who}</td><td className="sm">{n.msg}</td></tr>)}</tbody>
+              </table></div>
+            )}
+          </Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor, RmsSettings });

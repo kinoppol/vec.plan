@@ -74,6 +74,20 @@ MariaDB commit DDL ทันที ระบบจึงบันทึกที
   จึง **กู้คืนได้ในฐานข้อมูลว่างเท่านั้น** — ถ้าเผลอกู้คืนทับฐานข้อมูลที่ใช้งานอยู่ จะหยุดที่ `CREATE TABLE` แรกโดยไม่ลบข้อมูลปีอื่น
   · ชื่อไฟล์เช่น `backup_20261007_090000_fy2570_MAIN.sql.gz` · ไฟล์ใน `uploads/` ต้องสำรองแยก
 
+## โอนข้อมูลผู้ใช้จากระบบ RMS
+
+เมนู **ตั้งค่า › ข้อมูลผู้ใช้จาก RMS** (ผู้ดูแลระบบสถานศึกษา) หรือปุ่ม "โอนข้อมูลจาก RMS" ในหน้าผู้ใช้และบทบาท
+
+- **URL ของ RMS** (เช่น `http://rms.rvc.ac.th`) เก็บในฐานข้อมูล `settings.rms_base_url` **แยกตามสถานศึกษา** ผู้ดูแลเปลี่ยนได้เอง ·
+  ส่วนพาธ `/api_connection.php?app_name=nutty&data=people` และ `/files/` อยู่ในโค้ด (`app/RmsSync.php`)
+- โอนเฉพาะ `people_exit = 0` · `people_id` → ชื่อผู้ใช้ · `people_name` + เว้นวรรค + `people_surname` → ชื่อ · `people_email` → อีเมล
+  (รูปแบบผิดหรือซ้ำกับผู้ใช้อื่น = ไม่บันทึกอีเมล) · `ath_pass` → รหัสผ่าน (password_hash ก่อนเก็บ)
+- `people_pic` → ดาวน์โหลด `{URL}/files/{people_pic}` เก็บใน `uploads/avatars/` เป็นรูปโปรไฟล์ (ตรวจว่าเป็น JPG/PNG/GIF/WEBP ≤ 5 MB) ·
+  ผู้ที่ไม่มีรูปแสดงอักษรย่อตามเดิม · โอนซ้ำจะดาวน์โหลดใหม่เฉพาะเมื่อชื่อไฟล์รูปเปลี่ยน
+- โอนซ้ำได้: จับคู่ด้วยชื่อผู้ใช้ ปรับชื่อ/อีเมล/รหัสผ่าน/รูป โดย **ไม่เปลี่ยน created_at** บทบาท และสถานะใช้งาน ·
+  ไม่ยึดชื่อผู้ใช้ที่เป็นของสถานศึกษาอื่น · ปุ่ม "ตรวจสอบข้อมูล" แสดงผลก่อนโดยไม่บันทึก
+- ถ้า RMS ไม่ส่ง `ath_pass` ผู้ใช้ใหม่จะได้รหัสผ่านสุ่มที่ไม่มีใครรู้ (เข้าระบบไม่ได้จนกว่าผู้ดูแลรีเซ็ตรหัสผ่าน)
+
 ## ผู้ช่วย AI
 
 ปุ่มลอยมุมขวาล่าง (ไอคอนประกาย) เปิดช่องสนทนากับผู้ช่วย AI — ถามข้อมูลภาพรวม กองเงิน โครงการ สมุดบัญชี ประมาณการรายรับ
@@ -117,7 +131,7 @@ php tests/run.php --host=127.0.0.1 --port=3306 --user=root --pass=
 สร้างฐานข้อมูล `vec_plan_test` ใหม่ทุกครั้ง (ชื่อต้องลงท้าย `_test`) แล้วทดสอบ: migrations ขึ้น/ย้อน/ขึ้นใหม่,
 BR-01/06/10/15/20–25, การแย่งเงินก้อนเดียวกันพร้อมกัน 2 โปรเซส, นำเข้า Excel 100 โครงการให้ยอดต่อแหล่งเงินตรงไฟล์,
 ขอบเขตข้อมูลตามหน่วยงาน การแยกข้อมูลระหว่างสถานศึกษา ไฟล์สำรองข้อมูล
-และผู้ช่วย AI (เข้ารหัสคีย์, หลายการเชื่อมต่อ/เลือกโมเดล, แยกตามสถานศึกษา, เครื่องมือตามสิทธิ์, ต้องยืนยันก่อนบันทึก — ใช้ผู้ให้บริการจำลอง ไม่เรียก API จริง)
+การโอนผู้ใช้จาก RMS (จับคู่ฟิลด์, ข้าม people_exit, ไม่เปลี่ยน created_at, รูปโปรไฟล์) และผู้ช่วย AI (เข้ารหัสคีย์, หลายการเชื่อมต่อ/เลือกโมเดล, แยกตามสถานศึกษา, เครื่องมือตามสิทธิ์, ต้องยืนยันก่อนบันทึก — ใช้ผู้ให้บริการจำลอง ไม่เรียก API จริง)
 
 ## โครงสร้าง
 
@@ -125,7 +139,7 @@ BR-01/06/10/15/20–25, การแย่งเงินก้อนเดี�
 install.php            ตัวติดตั้ง (ติดตั้งซ้ำได้)
 index.php              หน้าแอป (โหลด JSX ตามลำดับ)
 api/index.php          JSON API: api/?r=resource/action
-app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport, Assistant
+app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport, Assistant, RmsSync, RmsSync
 app/api/*.php          handler ต่อ resource (auth, meta, dashboard, funds, ledger, projects, import, settings, users, institutions, system, assistant)
 assets/js/*.jsx        core → layout → dashboard → funds → ledger → projects → import → settings → admin → assistant → app
 migrations/            schema migrations

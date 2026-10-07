@@ -202,7 +202,7 @@ function Topbar({ onToggle, onLogout }) {
         <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={18} />
       </button>
       <button className="user-chip" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} title={u.name + ' · ' + roleText}>
-        <div className="avatar">{initials(u.name)}</div>
+        <Avatar user={u} />
         <div className="tx" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
           <span className="n">{u.name}</span>
           <span className="r">{u.position_title || roleText}</span>

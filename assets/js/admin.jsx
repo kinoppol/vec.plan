@@ -13,6 +13,7 @@ function UsersPage() {
   return (
     <div className="stack">
       <PageHead crumb="ผู้ดูแลระบบ" title="ผู้ใช้และบทบาท">
+        <button className="btn" onClick={() => navigate('settings', { tab: 'rms' })}><Icon name="download" size={16} />โอนข้อมูลจาก RMS</button>
         <button className="btn primary" onClick={() => setEdit({ active: 1 })}>+ เพิ่มผู้ใช้</button>
       </PageHead>
       <Alert tone="blue">บทบาทผูกกับ (ผู้ใช้, บทบาท, หน่วยงาน, ปีงบประมาณ) — ผู้ใช้หนึ่งคนมีได้หลายบทบาท · ผู้เสนอ / หัวหน้างาน / รองฯ ฝ่าย ต้องระบุหน่วยงานเพื่อกำหนดขอบเขตข้อมูล · ผู้ดูแลระบบไม่มีสิทธิ์อนุมัติหรือบันทึกเงิน</Alert>
@@ -27,7 +28,9 @@ function UsersPage() {
           <thead><tr><th>ผู้ใช้</th><th>ตำแหน่ง</th><th>บทบาท</th><th>เข้าระบบล่าสุด</th><th>สถานะ</th><th /></tr></thead>
           <tbody>{users.map(u => (
             <tr key={u.id} style={{ opacity: +u.active ? 1 : .55 }}>
-              <td><div style={{ fontWeight: 500 }}>{u.name}</div><div className="xs mono muted">{u.username}{u.email ? ' · ' + u.email : ''}</div></td>
+              <td><div className="row" style={{ gap: 10 }}><Avatar user={u} size={32} /><div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 500 }}>{u.name}{u.source === 'rms' && <Badge bg="var(--blue-bg)" fg="var(--blue-fg)" title={u.synced_at ? 'โอนจาก RMS ล่าสุด ' + thDate(u.synced_at, true) : 'โอนจาก RMS'} style={{ marginLeft: 6, height: 19, fontSize: 11 }}>RMS</Badge>}</div>
+                <div className="xs mono muted">{u.username}{u.email ? ' · ' + u.email : ''}</div></div></div></td>
               <td className="sm">{u.position_title || '—'}</td>
               <td className="sm">{u.roles.length === 0 ? <span className="muted">ไม่มีบทบาท</span> : u.roles.map((r, i) => (
                 <div key={i}>{data.role_labels[r.role]}{r.unit_name ? <span className="muted"> · {r.unit_name}</span> : ''}<span className="xs muted"> · {r.year_be ? 'ปี ' + r.year_be : 'ทุกปี'}</span></div>

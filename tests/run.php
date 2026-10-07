@@ -528,6 +528,92 @@ test('a central admin has no institution and no fiscal year', function () use ($
     ok(!is_system_admin(), 'in single mode the system admin is the institution admin');
 });
 
+// ------------------------------------------------------------------ users from RMS
+echo "RMS user transfer\n";
+$rmsAdmin = $mkUser('t_rms_admin', ['admin']);
+// Fake RMS server: the people list and one picture (a 1×1 PNG); records requested URLs.
+$rmsPeople = [];
+$rmsLog = new ArrayObject();
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+RmsSync::$transport = function (string $url) use (&$rmsPeople, $rmsLog, $png) {
+    $rmsLog[] = $url;
+    if (str_contains($url, RmsSync::PEOPLE_PATH)) return json_encode($rmsPeople, JSON_UNESCAPED_UNICODE);
+    if (str_contains($url, '/files/')) return $png;
+    throw new ApiError('unexpected ' . $url);
+};
+$person = fn(string $id, string $name, string $surname, array $extra = []) => $extra + ['people_id' => $id, 'people_name' => $name, 'people_surname' => $surname,
+    'people_email' => '', 'people_pic' => '', 'people_exit' => '0'];
+$rmsUser = function (string $username) use ($pdo) {
+    $st = $pdo->prepare('SELECT * FROM users WHERE username = ?');
+    $st->execute([$username]);
+    return $st->fetch() ?: null;
+};
+
+test('RMS base URL is an institution setting and the path stays in code', function () use ($rmsAdmin, $financeB, $rmsLog, $person, &$rmsPeople) {
+    as_user($rmsAdmin);
+    throws(fn() => RmsSync::normalizeBase('rms.rvc.ac.th'), 'http');
+    eq('http://rms.example.test', RmsSync::normalizeBase(' http://rms.example.test/ '));
+    set_setting('rms_base_url', 'http://rms.example.test');
+    as_user($financeB);
+    eq('', RmsSync::baseUrl(), 'another institution has its own (empty) address');
+    as_user($rmsAdmin);
+    $rmsPeople = [$person('1000000000001', 'นายหนึ่ง', 'ทดสอบ')];
+    RmsSync::sync(true);
+    eq('http://rms.example.test/api_connection.php?app_name=nutty&data=people', $rmsLog[0]);
+});
+test('RMS transfer: only people_exit = 0, mapped fields, hashed password, avatar downloaded', function () use ($rmsAdmin, $person, $rmsUser, $rmsLog, &$rmsPeople) {
+    as_user($rmsAdmin);
+    $rmsPeople = [
+        $person('1000000000001', 'นายหนึ่ง', 'ทดสอบ', ['ath_pass' => 'pass-one-123', 'people_email' => 'One@Example.test', 'people_pic' => 'p1.png']),
+        $person('1000000000002', 'นางสองคน', 'ไม่มีรหัส', ['people_email' => 'not-an-email']),
+        $person('1000000000003', 'นายลาออก', 'แล้ว', ['people_exit' => '1']),
+    ];
+    $preview = RmsSync::sync(true);
+    eq([3, 1, 2, 0], [$preview['total'], $preview['exited'], $preview['created'], $preview['updated']]);
+    ok(!$rmsUser('1000000000001'), 'preview writes nothing');
+    $r = RmsSync::sync(false);
+    eq([2, 1, 1], [$r['created'], $r['avatars'], $r['no_password']]);
+    $u = $rmsUser('1000000000001');
+    eq('นายหนึ่ง ทดสอบ', $u['name']);
+    eq('one@example.test', $u['email']);
+    eq(1, (int)$u['institution_id']);
+    eq('rms', $u['source']);
+    ok(password_verify('pass-one-123', $u['password_hash']) && $u['password_hash'] !== 'pass-one-123', 'password stored hashed');
+    ok($u['avatar_path'] && is_file(UPLOAD_DIR . '/' . $u['avatar_path']), 'avatar saved');
+    ok(in_array('http://rms.example.test/files/p1.png', (array)$rmsLog, true), 'picture URL = base + /files/ + people_pic');
+    $two = $rmsUser('1000000000002');
+    ok($two && $two['email'] === null && $two['avatar_path'] === null, 'bad email dropped, no picture → initials');
+    ok(!$rmsUser('1000000000003'), 'people_exit = 1 not transferred');
+});
+test('RMS transfer again updates the same user and keeps created_at', function () use ($rmsAdmin, $person, $rmsUser, $pdo, &$rmsPeople) {
+    as_user($rmsAdmin);
+    $pdo->exec("UPDATE users SET created_at = '2020-01-02 03:04:05' WHERE username = '1000000000001'");
+    $before = $rmsUser('1000000000001');
+    $rmsPeople = [$person('1000000000001', 'นายหนึ่ง', 'เปลี่ยนนามสกุล', ['ath_pass' => 'pass-one-123', 'people_pic' => 'p1.png'])];
+    $r = RmsSync::sync(false);
+    eq([0, 1, 0, 0], [$r['created'], $r['updated'], $r['avatars'], $r['password_updated']], 'unchanged picture and password are left alone');
+    $u = $rmsUser('1000000000001');
+    eq('2020-01-02 03:04:05', $u['created_at']);
+    eq('นายหนึ่ง เปลี่ยนนามสกุล', $u['name']);
+    eq((int)$before['id'], (int)$u['id']);
+    eq($before['avatar_path'], $u['avatar_path']);
+    $rmsPeople = [$person('1000000000001', 'นายหนึ่ง', 'เปลี่ยนนามสกุล', ['ath_pass' => 'new-pass-456'])];
+    $r = RmsSync::sync(false);
+    eq(1, $r['password_updated']);
+    $u = $rmsUser('1000000000001');
+    ok(password_verify('new-pass-456', $u['password_hash']));
+    ok($u['avatar_path'] === null && !is_file(UPLOAD_DIR . '/' . $before['avatar_path']), 'picture removed in RMS → back to initials');
+});
+test('RMS transfer never takes over a username of another institution', function () use ($rmsAdmin, $person, $pdo, $instB, &$rmsPeople) {
+    as_user($rmsAdmin);
+    $rmsPeople = [$person('b_finance', 'นายแฝง', 'ตัว', ['ath_pass' => 'x-pass-789'])];
+    $r = RmsSync::sync(false);
+    eq([0, 0, 1], [$r['created'], $r['updated'], $r['skipped']]);
+    eq($instB, (int)$pdo->query("SELECT institution_id FROM users WHERE username = 'b_finance'")->fetchColumn());
+    RmsSync::$transport = null;
+    rrmdir_contents(UPLOAD_DIR . '/avatars/i1');
+    @rmdir(UPLOAD_DIR . '/avatars/i1');
+});
 test('Backup dump contains tables, data and the ledger triggers', function () use ($pdo) {
     $r = Backup::create($pdo, 'test');
     $sql = gzdecode(file_get_contents(BACKUP_DIR . '/' . $r['file']));

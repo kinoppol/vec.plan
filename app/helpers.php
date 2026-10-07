@@ -387,6 +387,24 @@ function require_role($roles, ?int $fyId = null): array
     return $u;
 }
 
+/** Cache-busting token for a user's avatar, or null when they have none (initials are shown). */
+function avatar_version(array $u): ?string
+{
+    return !empty($u['avatar_path']) ? substr(md5((string)$u['avatar_path']), 0, 10) : null;
+}
+
+/** avatar_version() of a user id (null before the RMS migration ran or without a picture). */
+function user_avatar(int $id): ?string
+{
+    try {
+        $st = db()->prepare('SELECT avatar_path FROM users WHERE id = ?');
+        $st->execute([$id]);
+        return avatar_version(['avatar_path' => $st->fetchColumn()]);
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
 // ---------------------------------------------------------------- audit
 
 function audit(string $action, ?string $subjectType = null, $subjectId = null, $before = null, $after = null): void

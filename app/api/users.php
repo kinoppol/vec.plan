@@ -33,9 +33,10 @@ return [
         require_admin();
         $inst = current_institution_id();
         $pdo = db();
-        $st = $pdo->prepare('SELECT id, username, name, email, position_title, active, last_login_at, created_at FROM users WHERE institution_id = ? ORDER BY active DESC, name');
+        $st = $pdo->prepare('SELECT * FROM users WHERE institution_id = ? ORDER BY active DESC, name');
         $st->execute([$inst]);
-        $users = $st->fetchAll();
+        $keep = array_flip(['id', 'username', 'name', 'email', 'position_title', 'active', 'last_login_at', 'created_at', 'source', 'synced_at']);
+        $users = array_map(fn($u) => array_intersect_key($u, $keep) + ['avatar' => avatar_version($u)], $st->fetchAll());
         $roles = [];
         $st = $pdo->prepare('SELECT r.*, ou.name AS unit_name, fy.year_be FROM role_assignments r JOIN users u ON u.id = r.user_id
                 LEFT JOIN org_units ou ON ou.id = r.org_unit_id LEFT JOIN fiscal_years fy ON fy.id = r.fiscal_year_id WHERE u.institution_id = ? ORDER BY r.id');
@@ -129,6 +130,35 @@ return [
         });
     },
 
+    // ---------------------------------------------------------- transfer users from RMS (per institution)
+    'GET rms' => function () {
+        require_admin();
+        return ['base_url' => RmsSync::baseUrl(), 'people_path' => RmsSync::PEOPLE_PATH, 'files_path' => RmsSync::FILES_PATH];
+    },
+
+    'POST rms_save' => function () {
+        require_admin();
+        $base = RmsSync::normalizeBase((string)(body()['base_url'] ?? ''));
+        $before = RmsSync::baseUrl();
+        set_setting('rms_base_url', $base);
+        audit('settings.rms_base_url', 'settings', null, ['rms_base_url' => $before], ['rms_base_url' => $base]);
+        return ['ok' => true, 'base_url' => $base];
+    },
+
+    // Fetch the RMS list and count what a transfer would do, without changing anything.
+    'POST rms_preview' => function () {
+        require_admin();
+        session_write_close();
+        @set_time_limit(120);
+        return RmsSync::sync(true);
+    },
+
+    'POST rms_sync' => function () {
+        require_admin();
+        session_write_close();
+        @set_time_limit(900);
+        return RmsSync::sync(false);
+    },
     'POST reset_password' => function () {
         require_admin();
         $b = body();

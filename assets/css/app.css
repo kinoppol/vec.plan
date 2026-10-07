@@ -343,3 +343,5 @@ textarea.code { font-family: var(--mono); font-size: 12.5px; }
 .ai-model-pick .sm { overflow-wrap: anywhere; }
 @media (max-width: 640px) { .ai-form-2 { grid-template-columns: minmax(0, 1fr); } }
 .ai-models-box .search { flex: none; max-width: none; }
+.avatar { overflow: hidden; } .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ai-rms-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
