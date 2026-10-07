@@ -139,7 +139,7 @@ BR-01/06/10/15/20–25, การแย่งเงินก้อนเดี�
 install.php            ตัวติดตั้ง (ติดตั้งซ้ำได้)
 index.php              หน้าแอป (โหลด JSX ตามลำดับ)
 api/index.php          JSON API: api/?r=resource/action
-app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport, Assistant, RmsSync, RmsSync
+app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport, Assistant, RmsSync
 app/api/*.php          handler ต่อ resource (auth, meta, dashboard, funds, ledger, projects, import, settings, users, institutions, system, assistant)
 assets/js/*.jsx        core → layout → dashboard → funds → ledger → projects → import → settings → admin → assistant → app
 migrations/            schema migrations
