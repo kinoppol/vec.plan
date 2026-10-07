@@ -47,6 +47,53 @@ function json_out($data, int $code = 200): void
     exit;
 }
 
+/** Request body: JSON or form fields (or the body of an in-process api_call). */
+function body(): array
+{
+    if (isset($GLOBALS['__api_body'])) return $GLOBALS['__api_body'];
+    static $data = null;
+    if ($data !== null) return $data;
+    $ct = $_SERVER['CONTENT_TYPE'] ?? '';
+    if (stripos($ct, 'application/json') !== false) {
+        $data = json_decode(file_get_contents('php://input') ?: '[]', true);
+        if (!is_array($data)) fail('ข้อมูลที่ส่งมาไม่ใช่ JSON ที่ถูกต้อง');
+    } else {
+        $data = $_POST;
+    }
+    return $data;
+}
+
+/** Handlers of app/api/<resource>.php: ['METHOD action' => callable]. Each file is loaded once. */
+function api_handlers(string $resource): array
+{
+    static $cache = [];
+    if (!isset($cache[$resource])) {
+        $file = APP_ROOT . '/app/api/' . $resource . '.php';
+        if (!preg_match('/^[a-z_]+$/', $resource) || !is_file($file)) fail('ไม่พบ API', 404);
+        $cache[$resource] = require $file;
+    }
+    return $cache[$resource];
+}
+
+/**
+ * Run another API handler in-process as the current user (used by the AI assistant), so the
+ * handler's own permission checks apply. The fiscal year of the outer request carries over.
+ */
+function api_call(string $method, string $route, array $query = [], ?array $body = null)
+{
+    [$resource, $action] = array_pad(explode('/', $route, 2), 2, 'index');
+    $handler = api_handlers($resource)[$method . ' ' . $action] ?? null;
+    if (!$handler) fail('ไม่พบ API', 404);
+    $saved = [$_GET, $GLOBALS['__api_body'] ?? null];
+    $_GET = array_filter($query, fn($v) => $v !== null && $v !== '') + (isset($_GET['fy']) ? ['fy' => $_GET['fy']] : []);
+    $GLOBALS['__api_body'] = $body ?? [];
+    try {
+        return $handler();
+    } finally {
+        [$_GET, $GLOBALS['__api_body']] = $saved;
+    }
+}
+
 function h(?string $s): string
 {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');

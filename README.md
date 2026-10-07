@@ -74,6 +74,24 @@ MariaDB commit DDL ทันที ระบบจึงบันทึกที
   จึง **กู้คืนได้ในฐานข้อมูลว่างเท่านั้น** — ถ้าเผลอกู้คืนทับฐานข้อมูลที่ใช้งานอยู่ จะหยุดที่ `CREATE TABLE` แรกโดยไม่ลบข้อมูลปีอื่น
   · ชื่อไฟล์เช่น `backup_20261007_090000_fy2570_MAIN.sql.gz` · ไฟล์ใน `uploads/` ต้องสำรองแยก
 
+## ผู้ช่วย AI
+
+ปุ่มลอยมุมขวาล่าง (ไอคอนประกาย) เปิดช่องสนทนากับผู้ช่วย AI — ถามข้อมูลภาพรวม กองเงิน โครงการ สมุดบัญชี ประมาณการรายรับ
+หรือสั่งให้ช่วยบันทึก/พาไปหน้าที่ต้องการ
+
+- **ตั้งค่า**: เมนู **ผู้ดูแลระบบ › ผู้ช่วย AI** (ผู้ดูแลระบบสถานศึกษา; โหมดหลายสถานศึกษา ผู้ดูแลระบบกลางตั้งค่าเริ่มต้น แต่ละสถานศึกษาตั้งทับได้)
+- **ผู้ให้บริการ**: ทุกตัวที่รองรับ OpenAI Chat Completions API — OpenRouter, Google AI Studio (`…/v1beta/openai`), OpenAI,
+  Ollama, LM Studio, vLLM ฯลฯ · ควรใช้โมเดลที่รองรับ tool/function calling · ปุ่ม "ดึงรายชื่อโมเดล" อ่านจาก `{Base URL}/models`
+- **API key** เก็บแบบเข้ารหัส AES-256-GCM ด้วย `app.key` ใน `config/config.php` และไม่ส่งกลับไปที่เบราว์เซอร์ ·
+  คีย์ถูกส่งไปเฉพาะ URL ที่บันทึกคู่กันเท่านั้น (เปลี่ยน URL ต้องใส่คีย์ใหม่)
+- **สิทธิ์**: ผู้ช่วยเรียก API handler เดิมในนามผู้ใช้ที่สนทนา (`api_call()`) จึงเห็น/ทำได้เท่าบทบาทของผู้ใช้คนนั้น ·
+  การบันทึก/แก้ไข (บันทึกรายการกองเงิน กลับรายการ ประมาณการรายรับ) **ต้องกดยืนยันในการ์ดทุกครั้ง** และบันทึก audit `ai.*` ·
+  ปิด "อนุญาตให้ผู้ช่วยบันทึก/แก้ไขข้อมูล" ได้ถ้าต้องการให้ดูอย่างเดียว
+- **พูดแทนพิมพ์**: ปุ่มไมค์ใช้ Web Speech API ของเบราว์เซอร์ (ภาษาไทย; Chrome/Edge/Safari) ต้องเปิดผ่าน HTTPS หรือ localhost
+- ประวัติสนทนาเก็บใน sessionStorage ของเบราว์เซอร์ (ต่อผู้ใช้ต่อปีงบประมาณ) เซิร์ฟเวอร์ไม่เก็บ ·
+  ข้อมูลที่ผู้ช่วยค้นได้จะถูกส่งไปผู้ให้บริการ AI — ถ้าต้องการให้อยู่ในองค์กรให้ใช้ Ollama/LM Studio
+- XAMPP บน Windows ถ้าเชื่อมต่อ HTTPS ไม่ได้ (SSL certificate problem) ให้ตั้ง `curl.cainfo` ใน `php.ini` ชี้ไปที่ไฟล์ `cacert.pem`
+
 ## กฎเงินที่บังคับแล้ว (ระยะที่ 1)
 
 | รหัส | การบังคับ |
@@ -96,7 +114,8 @@ php tests/run.php --host=127.0.0.1 --port=3306 --user=root --pass=
 
 สร้างฐานข้อมูล `vec_plan_test` ใหม่ทุกครั้ง (ชื่อต้องลงท้าย `_test`) แล้วทดสอบ: migrations ขึ้น/ย้อน/ขึ้นใหม่,
 BR-01/06/10/15/20–25, การแย่งเงินก้อนเดียวกันพร้อมกัน 2 โปรเซส, นำเข้า Excel 100 โครงการให้ยอดต่อแหล่งเงินตรงไฟล์,
-ขอบเขตข้อมูลตามหน่วยงาน การแยกข้อมูลระหว่างสถานศึกษา และไฟล์สำรองข้อมูล
+ขอบเขตข้อมูลตามหน่วยงาน การแยกข้อมูลระหว่างสถานศึกษา ไฟล์สำรองข้อมูล
+และผู้ช่วย AI (เข้ารหัสคีย์, เครื่องมือตามสิทธิ์, ต้องยืนยันก่อนบันทึก — ใช้ผู้ให้บริการจำลอง ไม่เรียก API จริง)
 
 ## โครงสร้าง
 
@@ -104,9 +123,9 @@ BR-01/06/10/15/20–25, การแย่งเงินก้อนเดี�
 install.php            ตัวติดตั้ง (ติดตั้งซ้ำได้)
 index.php              หน้าแอป (โหลด JSX ตามลำดับ)
 api/index.php          JSON API: api/?r=resource/action
-app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport
-app/api/*.php          handler ต่อ resource (auth, meta, dashboard, funds, ledger, projects, import, settings, users, institutions, system)
-assets/js/*.jsx        core → layout → dashboard → funds → ledger → projects → import → settings → admin → app
+app/                   bootstrap, helpers, Ledger, Migrator, Backup, PlanImport, Xlsx, Seeder, Access, FundReport, Assistant
+app/api/*.php          handler ต่อ resource (auth, meta, dashboard, funds, ledger, projects, import, settings, users, institutions, system, assistant)
+assets/js/*.jsx        core → layout → dashboard → funds → ledger → projects → import → settings → admin → assistant → app
 migrations/            schema migrations
 config/config.php      สร้างโดยตัวติดตั้ง (ไม่ commit)
 storage/               installed.lock, backups/, logs/ (ไม่ commit)

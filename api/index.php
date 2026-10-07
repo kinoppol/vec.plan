@@ -23,23 +23,7 @@ if ($method !== 'GET' && !hash_equals((string)($_SESSION['csrf'] ?? ''), (string
     json_out(['error' => 'เซสชันหมดอายุหรือ CSRF token ไม่ถูกต้อง กรุณาโหลดหน้าใหม่', 'csrf' => true], 419);
 }
 
-$file = APP_ROOT . '/app/api/' . $resource . '.php';
-if (!is_file($file)) json_out(['error' => 'ไม่พบ API'], 404);
-
-/** Request body: JSON or form fields. */
-function body(): array
-{
-    static $data = null;
-    if ($data !== null) return $data;
-    $ct = $_SERVER['CONTENT_TYPE'] ?? '';
-    if (stripos($ct, 'application/json') !== false) {
-        $data = json_decode(file_get_contents('php://input') ?: '[]', true);
-        if (!is_array($data)) fail('ข้อมูลที่ส่งมาไม่ใช่ JSON ที่ถูกต้อง');
-    } else {
-        $data = $_POST;
-    }
-    return $data;
-}
+if (!is_file(APP_ROOT . '/app/api/' . $resource . '.php')) json_out(['error' => 'ไม่พบ API'], 404);
 
 function log_error(Throwable $e): void
 {
@@ -48,7 +32,7 @@ function log_error(Throwable $e): void
 }
 
 try {
-    $handlers = require $file;
+    $handlers = api_handlers($resource);
     $key = $method . ' ' . $action;
     if (!isset($handlers[$key])) json_out(['error' => 'ไม่พบ API'], 404);
     $result = $handlers[$key]();

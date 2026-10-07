@@ -16,6 +16,7 @@ const PAGES = {
   migrations: () => <MigrationsPage />,
   backups: () => <BackupsPage />,
   audit: () => <AuditPage />,
+  assistant: () => <AssistantSettingsPage />,
 };
 
 function App() {
@@ -63,6 +64,8 @@ function App() {
   const ctx = {
     meta, toast, setFy, navigate,
     reloadMeta: () => loadMeta(meta.fy),
+    // Reload meta and re-mount the page (used after the AI assistant changed data).
+    refresh: () => loadMeta(meta.fy).then(() => setVersion(v => v + 1)),
     funds: buildFunds(meta.funds),
     units: buildUnits(meta.units),
     central: !meta.fy,
@@ -85,6 +88,7 @@ function App() {
           </main>
         </div>
       </div>
+      {!central && <AssistantWidget />}
       {toastView}
     </AppCtx.Provider>
   );

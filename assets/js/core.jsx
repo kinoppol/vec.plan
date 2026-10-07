@@ -176,6 +176,11 @@ const ICONS = {
   paperclip: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48',
   play: 'M5 3l14 9-14 9z',
   plus: 'M12 5v14M5 12h14',
+  sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15v4M17 17h4M5 3v3M3.5 4.5h3',
+  mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3',
+  send: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  stop: 'M6 6h12v12H6z',
+  newChat: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h8M18 3v6M15 6h6',
 };
 function Icon({ name, size = 18, stroke = 1.75, style }) {
   return (
