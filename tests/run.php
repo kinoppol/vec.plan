@@ -366,7 +366,13 @@ $aiCall = fn(string $id, string $name, array $args) => ['role' => 'assistant', '
 $aiReceipt = fn() => ['entry_type' => 'receipt', 'fund_source_id' => $fund('INC-FEE'), 'amount' => 1234.5, 'reference_no' => 'AI-1', 'reference_date' => $day];
 $aiTools = fn(array $messages) => array_values(array_filter($messages, fn($m) => $m['role'] === 'tool'));
 $proposer = $mkUser('t_proposer', ['proposer']);
-foreach (['ai_enabled' => '1', 'ai_provider' => 'custom', 'ai_base_url' => 'http://llm.test/v1', 'ai_model' => 'test-model'] as $k => $v) set_setting($k, $v, 1);
+$mkConn = function (int $inst, string $name, bool $enabled, array $models, string $key = '') use ($pdo): int {
+    $pdo->prepare('INSERT INTO ai_connections (institution_id, name, provider, base_url, api_key, enabled, models, default_model) VALUES (?, ?, \'custom\', ?, ?, ?, ?, ?)')
+        ->execute([$inst, $name, 'http://' . strtolower($name) . '.test/v1', Assistant::encrypt($key), $enabled ? 1 : 0, json_encode($models), $models[0] ?? null]);
+    return (int)$pdo->lastInsertId();
+};
+$connA = $mkConn(1, 'Main', true, ['test-model', 'other-model'], 'sk-main');
+$connOff = $mkConn(1, 'Spare', false, ['spare-model']);
 
 test('API keys are stored encrypted and decrypt back', function () {
     $enc = Assistant::encrypt('sk-secret-1234');
@@ -374,15 +380,19 @@ test('API keys are stored encrypted and decrypt back', function () {
     eq('sk-secret-1234', Assistant::decrypt($enc));
     eq('', Assistant::decrypt('enc1:' . base64_encode(str_repeat('x', 40))), 'tampered value');
 });
-test('a system key is never sent to an institution\'s own URL', function () {
-    set_setting('ai_api_key', Assistant::encrypt('sk-system'), 0);
-    set_setting('ai_base_url', 'http://llm.test/v1', 0);
-    eq('sk-system', Assistant::config(1)['api_key'], 'same URL inherits the key');
-    set_setting('ai_base_url', 'http://elsewhere.test/v1', 1);
-    eq('', Assistant::config(1)['api_key'], 'other URL gets no key');
-    set_setting('ai_base_url', 'http://llm.test/v1', 1);
-    db()->exec("DELETE FROM settings WHERE skey = 'ai_api_key' OR (institution_id = 0 AND skey = 'ai_base_url')");
-    unset($GLOBALS['__settings']);
+test('several connections: users pick an enabled connection and one of its enabled models', function () use ($finance, $connA, $connOff) {
+    as_user($finance);
+    $c = Assistant::config();
+    eq($connA, $c['id']);
+    eq('test-model', $c['model'], 'default model');
+    eq('sk-main', $c['api_key']);
+    eq('other-model', Assistant::config($connA, 'other-model')['model']);
+    throws(fn() => Assistant::config($connA, 'gpt-not-enabled'), 'ไม่ได้เปิดใช้งาน');
+    throws(fn() => Assistant::config($connOff, 'spare-model'), 'ถูกปิด');
+    $info = Assistant::publicInfo();
+    ok($info['enabled']);
+    eq([$connA], array_column($info['connections'], 'id'), 'disabled connection hidden');
+    ok(!str_contains(json_encode($info), 'sk-main') && !str_contains(json_encode($info), 'http'), 'no key or URL sent to the browser');
 });
 test('tools offered follow the user\'s permissions', function () use ($fyId, $finance, $proposer) {
     as_user($finance);
@@ -480,6 +490,17 @@ test('ledger numbers and settings are per institution', function () use ($financ
         'entry_date' => fiscal_year($fyB)['starts_on']], $financeB);
     eq('LG70-00001', $e['entry_no'], 'institution B starts its own sequence');
     eq((string)$fyB, setting('current_fiscal_year_id'));
+});
+test('each institution has its own AI connections', function () use ($financeB, $finance, $instB, $connA, $mkConn) {
+    as_user($financeB);
+    ok(!Assistant::publicInfo()['enabled'], 'B sees none of A\'s connections');
+    throws(fn() => Assistant::connection($connA), 'ไม่พบ');
+    throws(fn() => Assistant::config($connA, 'test-model'), 'ยังไม่ได้เปิดใช้งาน');
+    $connB = $mkConn($instB, 'BeeAI', true, ['bee-model'], 'sk-bee');
+    eq('bee-model', Assistant::config()['model']);
+    eq('sk-bee', Assistant::config()['api_key']);
+    as_user($finance);
+    ok(!in_array($connB, array_column(Assistant::publicInfo()['connections'], 'id'), true), 'A does not see B\'s connection');
 });
 test('Access subtree and audit stay inside the institution', function () use ($financeB, $pdo, $instB) {
     as_user($financeB);

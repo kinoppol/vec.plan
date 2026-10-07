@@ -18,7 +18,7 @@ return [
                 'fy' => null, 'current_fy' => null, 'fiscal_year' => null, 'fiscal_years' => [],
                 'user' => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'position_title' => $u['position_title'],
                     'roles' => [['role' => 'super_admin', 'label' => ROLES['super_admin'], 'unit_name' => null]]],
-                'permissions' => ['super_admin' => true, 'system' => true, 'audit' => true, 'institutions' => true, 'ai_config' => true],
+                'permissions' => ['super_admin' => true, 'system' => true, 'audit' => true, 'institutions' => true],
                 'assistant' => ['enabled' => false],
                 'tenancy' => $tenancy,
                 'role_labels' => ROLES,

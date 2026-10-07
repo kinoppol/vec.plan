@@ -20,7 +20,6 @@ class Assistant
         'lmstudio' => ['label' => 'LM Studio', 'base_url' => 'http://localhost:1234/v1', 'needs_key' => false, 'model_hint' => 'ชื่อโมเดลที่โหลดไว้ใน LM Studio'],
         'custom' => ['label' => 'LLM server อื่นที่รองรับ OpenAI API', 'base_url' => '', 'needs_key' => false, 'model_hint' => 'ชื่อโมเดลตามที่เซิร์ฟเวอร์กำหนด'],
     ];
-    public const SETTING_KEYS = ['ai_enabled', 'ai_provider', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_temperature', 'ai_allow_write', 'ai_instructions'];
 
     /** Pages the open_page tool may send the browser to (hash routes of the SPA). */
     public const PAGES = [
@@ -34,47 +33,93 @@ class Assistant
     private const MAX_MESSAGES = 60;      // history kept from the browser
     private const MAX_TEXT = 8000;        // one user message
 
-    // ------------------------------------------------------------------ configuration
-    // Stored in settings: institution_id 0 = system default (central admin), an institution may override.
+    // ------------------------------------------------------------------ connections
+    // Each institution keeps its own ai_connections (several may be enabled, each with the models the admin
+    // picked); the assistant options (allow_write, instructions) are institution settings.
 
-    public static function config(?int $institutionId = null): array
+    /** Connections of the current institution; the decrypted key only with $withKey. */
+    public static function connections(bool $enabledOnly = false, bool $withKey = false): array
     {
-        $get = fn(string $k, $d = null) => setting($k, $d, $institutionId);
-        $provider = (string)$get('ai_provider', 'openrouter');
-        if (!isset(self::PROVIDERS[$provider])) $provider = 'custom';
-        $base = trim((string)$get('ai_base_url', ''));
-        $base = rtrim($base !== '' ? $base : self::PROVIDERS[$provider]['base_url'], '/');
-        $storedKey = (string)$get('ai_api_key', '');
-        // The system key is only ever sent to the system URL: an institution that points the
-        // assistant elsewhere must bring its own key.
-        $inst = $institutionId ?? (current_institution_id() ?? 0);
-        if ($inst && $storedKey !== '' && $storedKey === (string)setting('ai_api_key', '', 0)) {
-            $sysProvider = (string)setting('ai_provider', 'openrouter', 0);
-            $sysBase = trim((string)setting('ai_base_url', '', 0)) ?: (self::PROVIDERS[$sysProvider]['base_url'] ?? '');
-            if (rtrim($sysBase, '/') !== $base) $storedKey = '';
-        }
-        return [
-            'enabled' => $get('ai_enabled') === '1',
-            'provider' => $provider,
-            'base_url' => $base,
-            'model' => trim((string)$get('ai_model', '')),
-            'api_key' => self::decrypt($storedKey),
-            'temperature' => (float)$get('ai_temperature', '0.3'),
-            'allow_write' => $get('ai_allow_write', '1') === '1',
-            'instructions' => (string)$get('ai_instructions', ''),
+        $inst = current_institution_id();
+        if (!$inst) return [];
+        $st = db()->prepare('SELECT * FROM ai_connections WHERE institution_id = ?' . ($enabledOnly ? ' AND enabled = 1' : '') . ' ORDER BY sort, id');
+        $st->execute([$inst]);
+        return array_map(fn($r) => self::connRow($r, $withKey), $st->fetchAll());
+    }
+
+    /** One connection of the current institution, or 404. */
+    public static function connection(int $id, bool $withKey = true): array
+    {
+        $st = db()->prepare('SELECT * FROM ai_connections WHERE id = ? AND institution_id = ?');
+        $st->execute([$id, current_institution_id() ?? 0]);
+        $r = $st->fetch();
+        if (!$r) fail('ไม่พบการเชื่อมต่อ AI', 404);
+        return self::connRow($r, $withKey);
+    }
+
+    private static function connRow(array $r, bool $withKey): array
+    {
+        $models = json_decode((string)$r['models'], true);
+        $key = self::decrypt((string)$r['api_key']);
+        $out = [
+            'id' => (int)$r['id'], 'name' => $r['name'], 'provider' => isset(self::PROVIDERS[$r['provider']]) ? $r['provider'] : 'custom',
+            'base_url' => rtrim((string)$r['base_url'], '/'), 'enabled' => (bool)$r['enabled'],
+            'models' => is_array($models) ? array_values(array_filter($models, 'is_string')) : [],
+            'default_model' => (string)$r['default_model'], 'temperature' => (float)$r['temperature'], 'sort' => (int)$r['sort'],
+            'has_key' => $key !== '', 'key_hint' => $key !== '' ? '••••' . mb_substr($key, -4) : '',
         ];
+        if ($withKey) $out['api_key'] = $key;
+        return $out;
     }
 
-    public static function ready(array $c): bool
+    private static function usable(array $c): bool
     {
-        return $c['enabled'] && $c['base_url'] !== '' && $c['model'] !== '';
+        return $c['enabled'] && $c['base_url'] !== '' && $c['models'];
     }
 
-    /** What the SPA needs to know (meta): never the key. */
+    private static function defaultModel(array $c): string
+    {
+        return in_array($c['default_model'], $c['models'], true) ? $c['default_model'] : $c['models'][0];
+    }
+
+    public static function options(): array
+    {
+        return ['allow_write' => setting('ai_allow_write', '1') === '1', 'instructions' => (string)setting('ai_instructions', '')];
+    }
+
+    /** The connection and model a chat asked for (default: first enabled connection, its default model). */
+    public static function config(?int $connId = null, ?string $model = null): array
+    {
+        $list = array_values(array_filter(self::connections(true, true), [self::class, 'usable']));
+        if (!$list) fail('ผู้ช่วย AI ยังไม่ได้เปิดใช้งาน ติดต่อผู้ดูแลระบบ', 409);
+        $c = $list[0];
+        if ($connId) {
+            $found = array_values(array_filter($list, fn($x) => $x['id'] === $connId));
+            if (!$found) fail('การเชื่อมต่อ AI ที่เลือกถูกปิดหรือถูกลบแล้ว กรุณาเลือกใหม่', 409);
+            $c = $found[0];
+        }
+        if ($model !== null && $model !== '') {
+            if (!in_array($model, $c['models'], true)) fail('โมเดลที่เลือกไม่ได้เปิดใช้งานแล้ว กรุณาเลือกใหม่', 409);
+            $c['model'] = $model;
+        } else {
+            $c['model'] = self::defaultModel($c);
+        }
+        return $c + self::options();
+    }
+
+    /** What the SPA needs (meta): the connections/models users may pick — never keys or URLs. */
     public static function publicInfo(): array
     {
-        $c = self::config();
-        return ['enabled' => self::ready($c), 'model' => $c['model'], 'allow_write' => $c['allow_write']];
+        try {
+            $conns = array_values(array_filter(self::connections(true), [self::class, 'usable']));
+        } catch (PDOException $e) {
+            return ['enabled' => false, 'connections' => []]; // migration not run yet
+        }
+        return [
+            'enabled' => (bool)$conns,
+            'connections' => array_map(fn($c) => ['id' => $c['id'], 'name' => $c['name'], 'models' => $c['models'], 'default_model' => self::defaultModel($c)], $conns),
+            'allow_write' => self::options()['allow_write'],
+        ];
     }
 
     private static function cryptKey(): string
@@ -458,10 +503,9 @@ class Assistant
      * One user turn (or the user's answer to pending actions). Returns the updated history, any
      * actions waiting for confirmation, browser actions (open_page) and whether data changed.
      */
-    public static function chat(array $rawMessages, array $decisions, array $context): array
+    public static function chat(array $rawMessages, array $decisions, array $context, ?int $connId = null, ?string $model = null): array
     {
-        $c = self::config();
-        if (!self::ready($c)) fail('ผู้ช่วย AI ยังไม่ได้เปิดใช้งาน ติดต่อผู้ดูแลระบบ', 409);
+        $c = self::config($connId, $model);
         $fyId = request_fy();
         $tools = self::toolsFor($fyId, $c['allow_write']);
         $schema = self::schema($tools);

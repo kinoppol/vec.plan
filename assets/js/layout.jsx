@@ -100,7 +100,7 @@ const NAV = [
   { group: 'อื่น ๆ' },
   { id: 'reports', label: 'รายงาน', icon: 'bar', phase: 2, perm: 'view_funds' },
   { id: 'settings', label: 'ตั้งค่า', icon: 'gear', permAny: ['settings', 'admin'] },
-  { group: 'ผู้ดูแลระบบ', permAny: ['admin', 'system', 'super_admin', 'ai_config'] },
+  { group: 'ผู้ดูแลระบบ', permAny: ['admin', 'system', 'super_admin'] },
   { id: 'institutions', label: 'สถานศึกษา', icon: 'home', perm: 'institutions' },
   { id: 'users', label: 'ผู้ใช้และบทบาท', icon: 'users', perm: 'admin' },
   { id: 'migrations', label: 'Migrations ฐานข้อมูล', icon: 'db', perm: 'system' },
@@ -109,7 +109,7 @@ const NAV = [
   { id: 'assistant', label: 'ผู้ช่วย AI', icon: 'sparkle', perm: 'ai_config' },
 ];
 // The central admin (multi-institution mode) has no institution data: only the admin pages.
-const CENTRAL_PAGES = ['institutions', 'migrations', 'backups', 'audit', 'assistant'];
+const CENTRAL_PAGES = ['institutions', 'migrations', 'backups', 'audit'];
 const PHASE_NAME = { 2: 'ระยะที่ 2', 3: 'ระยะที่ 3', 4: 'ระยะที่ 4' };
 
 function visibleNav(perms, isPlannerLike) {
