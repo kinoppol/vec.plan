@@ -604,6 +604,28 @@ test('RMS transfer again updates the same user and keeps created_at', function (
     ok(password_verify('new-pass-456', $u['password_hash']));
     ok($u['avatar_path'] === null && !is_file(UPLOAD_DIR . '/' . $before['avatar_path']), 'picture removed in RMS → back to initials');
 });
+test('RMS pictures: large photos are resized to fit 512 px, a PDF is reported and initials stay', function () use ($rmsAdmin, $person, $rmsUser, &$rmsPeople) {
+    as_user($rmsAdmin);
+    $img = imagecreatetruecolor(1600, 800);
+    imagefill($img, 0, 0, imagecolorallocate($img, 200, 30, 30));
+    ob_start(); imagejpeg($img, null, 95); $big = (string)ob_get_clean();
+    $big .= str_repeat("\0", 300 * 1024); // over the size where the original is kept
+    [$out, $ext] = RmsSync::avatarImage($big);
+    $dim = getimagesizefromstring($out);
+    eq(['jpg', 512, 256], [$ext, $dim[0], $dim[1]]);
+    throws(fn() => RmsSync::avatarImage('%PDF-1.7 not a picture'), 'ไม่ใช่รูปภาพ');
+    RmsSync::$transport = function (string $url) use (&$rmsPeople, $big) {
+        if (str_contains($url, RmsSync::PEOPLE_PATH)) return json_encode($rmsPeople, JSON_UNESCAPED_UNICODE);
+        return str_ends_with($url, '.pdf') ? '%PDF-1.7 not a picture' : $big;
+    };
+    $rmsPeople = [$person('1000000000004', 'นายรูป', 'ใหญ่', ['people_pic' => 'big.jpg']), $person('1000000000005', 'นางไฟล์', 'พีดีเอฟ', ['people_pic' => 'card.pdf'])];
+    $r = RmsSync::sync(false);
+    eq([1, 1], [$r['avatars'], $r['avatar_errors']]);
+    $u = $rmsUser('1000000000004');
+    ok(filesize(UPLOAD_DIR . '/' . $u['avatar_path']) < 100 * 1024 && str_ends_with($u['avatar_path'], '.jpg'), 'stored small');
+    eq(null, $rmsUser('1000000000005')['avatar_path']);
+    ok(str_contains(json_encode($r['notes'], JSON_UNESCAPED_UNICODE), 'ไม่ใช่รูปภาพ'));
+});
 test('RMS transfer never takes over a username of another institution', function () use ($rmsAdmin, $person, $pdo, $instB, &$rmsPeople) {
     as_user($rmsAdmin);
     $rmsPeople = [$person('b_finance', 'นายแฝง', 'ตัว', ['ath_pass' => 'x-pass-789'])];

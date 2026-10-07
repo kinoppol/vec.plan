@@ -378,13 +378,60 @@ function SettingsEditor({ edit, data, onClose, save }) {
 }
 
 // ------------------------------------------------------------------ users from RMS (institution admin)
+/** Live progress of an RMS preview / transfer: polls users/rms_progress while the request runs. */
+function RmsProgress({ dry, since }) {
+  const [p, setP] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await api('users/rms_progress');
+        // Ignore what an earlier run left behind.
+        if (alive && r.progress && r.progress.started * 1000 >= since - 3000) setP(r.progress);
+      } catch (e) { /* keep the last state */ }
+    };
+    poll();
+    const t1 = setInterval(poll, 700);
+    const t2 = setInterval(() => setNow(Date.now()), 500);
+    // A transfer keeps running on the server, but warn before leaving so the result is not missed.
+    const leave = e => { if (!dry) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', leave);
+    return () => { alive = false; clearInterval(t1); clearInterval(t2); window.removeEventListener('beforeunload', leave); };
+  }, [since, dry]);
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  const clock = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  const total = p && p.total ? p.total : 0;
+  const done = p && p.done ? p.done : 0;
+  const percent = p && p.phase !== 'fetch' && total ? Math.min(100, Math.round(done / total * 100)) : null;
+  const title = !p || p.phase === 'fetch' ? 'กำลังดึงรายชื่อจากระบบ RMS…'
+    : p.phase === 'done' ? 'กำลังสรุปผล…'
+    : (dry ? 'กำลังตรวจสอบ ' : 'กำลังโอนข้อมูล ') + fmt0(done) + ' / ' + fmt0(total) + ' คน';
+  return (
+    <div className="rms-progress" role="status" aria-live="polite">
+      <div className="rms-spin" aria-hidden="true"><span className="ring" /><Icon name="users" size={20} /></div>
+      <div className="grow stack" style={{ gap: 6 }}>
+        <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
+          <b style={{ color: 'var(--heading)' }}>{title}</b>
+          <span className="sm mono muted" title="เวลาที่ใช้">{percent !== null ? percent + '% · ' : ''}{clock}</span>
+        </div>
+        <div className={'rms-bar' + (percent === null ? ' indet' : '')}><div style={percent === null ? undefined : { width: Math.max(3, percent) + '%' }} /></div>
+        <div className="xs muted" style={{ minHeight: 16 }}>
+          {p && p.phase === 'sync' && p.current ? <Fragment>{dry ? 'กำลังตรวจ: ' : 'กำลังโอน: '}<b>{p.current}</b></Fragment> : (dry ? 'อ่านข้อมูลเท่านั้น ยังไม่บันทึก' : 'การดาวน์โหลดรูปโปรไฟล์อาจใช้เวลาหลายนาที — กรุณาอย่าปิดหน้านี้')}
+          {p && p.phase !== 'fetch' && !dry && <span> · เพิ่มใหม่ {fmt0(p.created || 0)} · ปรับ {fmt0(p.updated || 0)} · รูป {fmt0(p.avatars || 0)}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RmsSettings() {
   const { toast } = useApp();
   const { data, error, loading, reload } = useApi('users/rms');
   const [base, setBase] = useState('');
   const [result, setResult] = useState(null);
   const [busy, run] = useBusy();
-  const [busyText, setBusyText] = useState('');
+  const [running, setRunning] = useState(null);
   useEffect(() => { if (data) setBase(data.base_url || ''); }, [data]);
   if (error) return <LoadError error={error} onRetry={reload} />;
   if (loading || !data) return <Skeleton rows={4} />;
@@ -396,13 +443,13 @@ function RmsSettings() {
   const go = dry => run(async () => {
     if (!dry && !window.confirm('โอนข้อมูลผู้ใช้จาก RMS เข้าระบบตอนนี้?\nผู้ใช้เดิม (people_id ตรงกัน) จะถูกปรับชื่อ อีเมล รหัสผ่าน และรูปโปรไฟล์ตาม RMS')) return;
     setResult(null);
-    setBusyText(dry ? 'กำลังอ่านข้อมูลจาก RMS…' : 'กำลังโอนข้อมูลและดาวน์โหลดรูปโปรไฟล์… อาจใช้เวลาหลายนาที');
+    setRunning({ dry, since: Date.now() });
     try {
       const r = await post(dry ? 'users/rms_preview' : 'users/rms_sync');
       setResult({ ...r, dry });
       if (!dry) toast('โอนข้อมูลผู้ใช้เรียบร้อย', 'ok');
     } catch (e) { toast(e.message, 'err'); }
-    finally { setBusyText(''); }
+    finally { setRunning(null); }
   });
   const R = result;
   return (
@@ -427,7 +474,7 @@ function RmsSettings() {
           <li>โอนเฉพาะผู้ใช้ที่ <span className="mono">people_exit = 0</span></li>
           <li><span className="mono">people_id</span> → ชื่อผู้ใช้ · <span className="mono">people_name + people_surname</span> → ชื่อ · <span className="mono">people_email</span> → อีเมล</li>
           <li><span className="mono">ath_pass</span> → รหัสผ่าน (เข้ารหัสก่อนเก็บ) · ถ้า RMS ไม่ส่งรหัสผ่านมา ผู้ใช้ใหม่จะยังเข้าระบบไม่ได้จนกว่าผู้ดูแลรีเซ็ตรหัสผ่าน</li>
-          <li><span className="mono">people_pic</span> → ดาวน์โหลดเป็นรูปโปรไฟล์ · ผู้ที่ไม่มีรูปแสดงอักษรย่อตามเดิม</li>
+          <li><span className="mono">people_pic</span> → ดาวน์โหลดเป็นรูปโปรไฟล์ รูปใหญ่ย่ออัตโนมัติเหลือไม่เกิน 512 พิกเซล · ผู้ที่ไม่มีรูปหรือไฟล์ไม่ใช่รูปภาพ แสดงอักษรย่อตามเดิม</li>
           <li>โอนซ้ำได้: ผู้ใช้เดิมถูกปรับข้อมูลตาม RMS โดยไม่เปลี่ยนวันที่สร้างบัญชี บทบาท และสถานะการใช้งาน · บทบาทต้องกำหนดเองที่หน้าผู้ใช้และบทบาท</li>
         </ul>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -435,7 +482,7 @@ function RmsSettings() {
           <button className="btn primary" onClick={() => go(false)} disabled={busy || dirty || !data.base_url}><Icon name="download" size={16} />โอนข้อมูลผู้ใช้</button>
           {dirty && <span className="xs" style={{ color: 'var(--orange-fg)' }}>บันทึก URL ก่อนโอนข้อมูล</span>}
         </div>
-        {busyText && <Alert tone="blue">{busyText}</Alert>}
+        {running && <RmsProgress dry={running.dry} since={running.since} />}
         {R && (
           <Fragment>
             <Alert tone={R.dry ? 'blue' : 'green'} title={R.dry ? 'ผลการตรวจสอบ (ยังไม่ได้บันทึก)' : 'โอนข้อมูลเรียบร้อย'}>
@@ -463,4 +510,4 @@ function RmsSettings() {
   );
 }
 
-Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor, RmsSettings });
+Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor, RmsSettings, RmsProgress });

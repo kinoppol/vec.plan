@@ -16,7 +16,10 @@ class RmsSync
     public const PEOPLE_PATH = '/api_connection.php?app_name=nutty&data=people';
     public const FILES_PATH = '/files/';
     public const AVATAR_MIME = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-    private const AVATAR_MAX = 5 * 1024 * 1024;
+    private const DOWNLOAD_MAX = 30 * 1024 * 1024;   // camera photos in RMS can be 10 MB+
+    public const AVATAR_PX = 512;                      // stored avatars fit in 512×512
+    public const AVATAR_KEEP_BYTES = 200 * 1024;       // a small enough original is kept as is
+    private const MAX_PIXELS = 120000000;              // refuse absurd images (decoding needs ~5 bytes per pixel)
 
     /** Tests replace the HTTP GET: fn(string $url): string (response body). */
     public static $transport = null;
@@ -72,13 +75,25 @@ class RmsSync
 
     /**
      * Transfer (or, with $dryRun, only count what would happen). Returns counts and per-person notes.
-     * Pictures are downloaded only when people_pic changed or the stored file is missing.
+     * Pictures are downloaded only when people_pic changed or the stored file is missing, and resized (avatarImage).
      */
     public static function sync(bool $dryRun = false): array
     {
         $inst = require_institution();
         $base = self::baseUrl();
         if ($base === '') fail('ยังไม่ได้ตั้งค่า URL ของระบบ RMS', 409);
+        $job = ['dry' => $dryRun, 'started' => microtime(true)];
+        self::report($inst, $job + ['phase' => 'fetch']);
+        try {
+            return self::run($inst, $base, $dryRun, $job);
+        } catch (Throwable $e) {
+            self::report($inst, $job + ['phase' => 'error', 'message' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    private static function run(int $inst, string $base, bool $dryRun, array $job): array
+    {
         $rows = self::fetchPeople($base);
         $pdo = db();
         $r = ['total' => count($rows), 'exited' => 0, 'created' => 0, 'updated' => 0, 'skipped' => 0, 'no_password' => 0,
@@ -88,7 +103,14 @@ class RmsSync
         $emailOwner = $pdo->prepare('SELECT id FROM users WHERE email = ? AND username <> ?');
         $seen = [];
 
+        $done = 0;
+        $tick = function (string $current = '') use ($inst, $job, &$r, &$done) {
+            self::report($inst, $job + ['phase' => $current === '' ? 'done' : 'sync', 'done' => $done, 'total' => $r['total'], 'current' => $current]
+                + array_intersect_key($r, array_flip(['created', 'updated', 'skipped', 'exited', 'avatars'])));
+        };
         foreach ($rows as $p) {
+            $done++;
+            $tick(trim((string)($p['people_name'] ?? '') . ' ' . (string)($p['people_surname'] ?? '')) ?: '…');
             if ((string)($p['people_exit'] ?? '') !== '0') { $r['exited']++; continue; }
             $u = self::mapPerson($p);
             $who = $u['name'] !== '' ? $u['name'] : $u['username'];
@@ -143,10 +165,29 @@ class RmsSync
                 $note($who, 'ดาวน์โหลดรูปไม่สำเร็จ: ' . $e->getMessage());
             }
         }
+        $tick();
         if (!$dryRun) {
             audit('users.rms_sync', 'institution', $inst, null, array_diff_key($r, ['notes' => 1]) + ['base_url' => $base]);
         }
         return $r;
+    }
+
+    private static function progressFile(int $inst): string
+    {
+        return APP_ROOT . '/storage/logs/rms-progress-i' . $inst . '.json';
+    }
+
+    /** Progress of the current institution's transfer, written while it runs (the settings page polls it). */
+    public static function progress(): ?array
+    {
+        $f = self::progressFile(require_institution());
+        $d = is_file($f) ? json_decode((string)@file_get_contents($f), true) : null;
+        return is_array($d) ? $d : null;
+    }
+
+    private static function report(int $inst, array $state): void
+    {
+        @file_put_contents(self::progressFile($inst), json_encode($state, JSON_UNESCAPED_UNICODE), LOCK_EX);
     }
 
     /** Download / replace / remove a user's avatar. Returns true when something changed. */
@@ -160,19 +201,83 @@ class RmsSync
             db()->prepare('UPDATE users SET avatar_path = NULL, avatar_source = NULL WHERE id = ?')->execute([$userId]);
             return true;
         }
-        if ($pic === $source && $file && is_file($file)) return false;
-
-        $url = $base . self::FILES_PATH . implode('/', array_map('rawurlencode', explode('/', $pic)));
-        $bin = self::get($url, 20, self::AVATAR_MAX);
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($bin);
-        if (!isset(self::AVATAR_MIME[$mime]) || @getimagesizefromstring($bin) === false) fail('ไฟล์รูปไม่ใช่ JPG/PNG/GIF/WEBP');
+        if ($pic === $source && $file && is_file($file)) {
+            // Same picture: only shrink a stored file that is still large (transferred before resizing existed).
+            if (filesize($file) <= self::AVATAR_KEEP_BYTES) return false;
+            $bin = (string)file_get_contents($file);
+        } else {
+            $url = $base . self::FILES_PATH . implode('/', array_map('rawurlencode', explode('/', $pic)));
+            $bin = self::get($url, 60, self::DOWNLOAD_MAX);
+        }
+        [$bin, $ext] = self::avatarImage($bin);
         $rel = 'avatars/i' . $inst;
         if (!is_dir(UPLOAD_DIR . '/' . $rel) && !mkdir(UPLOAD_DIR . '/' . $rel, 0775, true)) fail('สร้างโฟลเดอร์เก็บรูปไม่ได้');
-        $rel .= '/' . $userId . '_' . bin2hex(random_bytes(4)) . '.' . self::AVATAR_MIME[$mime];
+        $rel .= '/' . $userId . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
         if (file_put_contents(UPLOAD_DIR . '/' . $rel, $bin) === false) fail('บันทึกรูปไม่ได้');
         db()->prepare('UPDATE users SET avatar_path = ?, avatar_source = ? WHERE id = ?')->execute([$rel, $pic, $userId]);
         if ($file && is_file($file)) @unlink($file);
         return true;
+    }
+
+    /**
+     * Picture bytes → [bytes, extension] ready to store. A small image that already fits is kept;
+     * anything larger is decoded, turned upright (EXIF), scaled to fit AVATAR_PX and saved as JPEG,
+     * which also drops metadata. Throws for files that are not pictures (e.g. a PDF in people_pic).
+     */
+    public static function avatarImage(string $bin): array
+    {
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($bin);
+        $size = @getimagesizefromstring($bin);
+        if (!$size || !str_starts_with($mime, 'image/')) fail('ไฟล์ใน RMS ไม่ใช่รูปภาพ (' . $mime . ')');
+        [$w, $h] = $size;
+        if (isset(self::AVATAR_MIME[$mime]) && strlen($bin) <= self::AVATAR_KEEP_BYTES && $w <= self::AVATAR_PX && $h <= self::AVATAR_PX) {
+            return [$bin, self::AVATAR_MIME[$mime]];
+        }
+        if (!function_exists('imagecreatefromstring')) {
+            if (isset(self::AVATAR_MIME[$mime]) && strlen($bin) <= 5 * 1024 * 1024) return [$bin, self::AVATAR_MIME[$mime]];
+            fail('รูปใหญ่เกินไปและย่อไม่ได้ เพราะ PHP ไม่ได้เปิด extension gd');
+        }
+        if ($w * $h > self::MAX_PIXELS) fail('รูปมีขนาด ' . $w . '×' . $h . ' พิกเซล ใหญ่เกินกว่าจะย่อได้');
+        // Decoding a large photo needs about 5 bytes per pixel.
+        $need = (int)($w * $h * 5 + 64 * 1024 * 1024);
+        $limit = self::bytes((string)ini_get('memory_limit'));
+        if ($limit > 0 && $limit < $need) @ini_set('memory_limit', (string)$need);
+        $src = @imagecreatefromstring($bin);
+        if (!$src) fail('อ่านไฟล์รูปไม่ได้ (' . $mime . ')');
+        if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+            $exif = @exif_read_data('data://image/jpeg;base64,' . base64_encode(substr($bin, 0, 256 * 1024)));
+            $rot = [3 => 180, 6 => -90, 8 => 90][(int)($exif['Orientation'] ?? 1)] ?? 0;
+            if ($rot) {
+                $turned = imagerotate($src, $rot, 0);
+                imagedestroy($src);
+                $src = $turned;
+            }
+        }
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $scale = min(1, self::AVATAR_PX / max($w, $h));
+        $nw = max(1, (int)round($w * $scale));
+        $nh = max(1, (int)round($h * $scale));
+        $dst = imagecreatetruecolor($nw, $nh);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255)); // transparent areas become white
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+        ob_start();
+        imagejpeg($dst, null, 85);
+        $out = (string)ob_get_clean();
+        imagedestroy($dst);
+        return [$out, 'jpg'];
+    }
+
+    private static function bytes(string $v): int
+    {
+        $n = (int)$v;
+        switch (strtolower(substr(trim($v), -1))) {
+            case 'g': return $n * 1024 ** 3;
+            case 'm': return $n * 1024 ** 2;
+            case 'k': return $n * 1024;
+        }
+        return $n;
     }
 
     private static function get(string $url, int $timeout, int $maxBytes): string

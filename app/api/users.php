@@ -153,6 +153,12 @@ return [
         return RmsSync::sync(true);
     },
 
+    // Polled by the page while a preview / transfer runs (those requests released the session lock).
+    'GET rms_progress' => function () {
+        require_admin();
+        return ['progress' => RmsSync::progress()];
+    },
+
     'POST rms_sync' => function () {
         require_admin();
         session_write_close();
