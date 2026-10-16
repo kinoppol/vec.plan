@@ -94,7 +94,12 @@ try {
     $u = RvcOne::userForLogin($oaUser);
 } catch (Throwable $e) {
     sso_log('user mapping failed for oa id ' . (int)$oaUser['id'] . ': ' . $e->getMessage());
-    sso_page(500, 'เข้าสู่ระบบไม่สำเร็จ', 'สร้างบัญชีผู้ใช้ไม่สำเร็จ กรุณาติดต่อผู้ดูแลระบบ');
+    $state = $e instanceof PDOException ? (string)($e->errorInfo[0] ?? $e->getCode()) : '';
+    // 42S22 unknown column / 42S02 unknown table: the RVC-ONE migration has not been run on this server.
+    $why = in_array($state, ['42S22', '42S02'], true)
+        ? 'ฐานข้อมูลยังไม่ได้อัปเดต — ผู้ดูแลระบบต้องรัน migration ที่ค้างอยู่ (ผู้ดูแลระบบ › Migrations ฐานข้อมูล) ก่อน'
+        : ($e instanceof ApiError ? $e->getMessage() : 'กรุณาติดต่อผู้ดูแลระบบ' . ($state !== '' ? ' (รหัสข้อผิดพลาดฐานข้อมูล ' . $state . ')' : ''));
+    sso_page(500, 'เข้าสู่ระบบไม่สำเร็จ', 'สร้างบัญชีผู้ใช้ไม่สำเร็จ: ' . $why);
 }
 if (!$u['active']) sso_page(403, 'บัญชีถูกระงับ', 'บัญชีนี้ถูกปิดการใช้งานในระบบแผนงานและงบประมาณ กรุณาติดต่อผู้ดูแลระบบ');
 if ($u['institution_id'] && !$u['institution_active']) sso_page(403, 'สถานศึกษาถูกปิดการใช้งาน', 'กรุณาติดต่อผู้ดูแลระบบกลาง');
