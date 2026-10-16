@@ -26,7 +26,7 @@ function SettingsPage() {
       <PageHead crumb="ตั้งค่า" title="ข้อมูลหลักของระบบ" />
       {readOnly && <Alert tone="blue">ผู้ดูแลระบบแก้ไขได้เฉพาะชื่อสถานศึกษาและปีงบประมาณปัจจุบัน — ข้อมูลหลักอื่นแก้ไขโดยงานวางแผนและงบประมาณ</Alert>}
       <div className="row" style={{ gap: 2, borderBottom: '1px solid var(--chip-line)', overflowX: 'auto' }} role="tablist">
-        {SETTINGS_TABS.concat(meta.permissions.admin ? [['rms', 'ข้อมูลผู้ใช้จาก RMS']] : []).map(([k, l]) => (
+        {SETTINGS_TABS.concat(meta.permissions.admin ? [['rms', 'ข้อมูลผู้ใช้จาก RMS']] : [], meta.permissions.system ? [['login', 'การเข้าสู่ระบบ']] : []).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
             style={{ height: 42, padding: '0 16px', border: 0, background: 'transparent', fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap', marginBottom: -1,
               borderBottom: '2px solid ' + (tab === k ? 'var(--navy)' : 'transparent'), color: tab === k ? 'var(--heading)' : 'var(--muted)', fontWeight: tab === k ? 600 : 400 }}>{l}</button>
@@ -41,6 +41,7 @@ function SettingsPage() {
       {data && tab === 'alignment' && <AlignmentSettings data={data} readOnly={readOnly} onEdit={setEdit} />}
       {data && tab === 'chains' && <ChainSettings data={data} readOnly={readOnly} save={save} />}
       {tab === 'rms' && meta.permissions.admin && <RmsSettings />}
+      {tab === 'login' && meta.permissions.system && <div className="stack"><LoginMethods /><OaConnection /></div>}
       {edit && <SettingsEditor edit={edit} data={data} onClose={() => setEdit(null)} save={save} />}
     </div>
   );

@@ -151,7 +151,9 @@ function ResetPassword({ user, onClose }) {
 function InstitutionsPage() {
   const { meta } = useApp();
   if (!meta.permissions.institutions) return <Forbidden />;
-  return <div className="stack"><LoginMethods /><OaConnection />{meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />}</div>;
+  // Sign-in settings live under ตั้งค่า › การเข้าสู่ระบบ; the central admin (multi mode) has no settings page, so they stay here for them.
+  const central = meta.permissions.super_admin;
+  return <div className="stack">{central && <LoginMethods />}{central && <OaConnection />}{meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />}</div>;
 }
 
 /** RVC-ONE client secret: write-only (the saved value is never shown), stored encrypted. */
@@ -673,4 +675,4 @@ function AuditPage() {
   );
 }
 
-Object.assign(window, { UsersPage, UserEditor, RoleEditor, ResetPassword, InstitutionsPage, MigrationsPage, CreateMigration, BackupsPage, CreateBackup, AuditPage });
+Object.assign(window, { UsersPage, UserEditor, RoleEditor, ResetPassword, InstitutionsPage, MigrationsPage, CreateMigration, BackupsPage, CreateBackup, AuditPage, LoginMethods, OaConnection });
