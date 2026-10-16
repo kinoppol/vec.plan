@@ -222,6 +222,29 @@ return [
         return ['ok' => true, 'login_methods' => $m];
     },
 
+    // RVC-ONE client secret: write-only from the page (never returned), stored encrypted.
+    'GET oa_secret' => function () {
+        sys_admin();
+        $c = RvcOne::config();
+        return ['client_id' => $c['client_id'], 'redirect_uri' => $c['redirect_uri'], 'source' => RvcOne::secretSource()];
+    },
+
+    'POST oa_secret' => function () {
+        sys_admin();
+        $secret = trim((string)(body()['secret'] ?? ''));
+        if (mb_strlen($secret) > 255 || preg_match('/\s/', $secret)) fail('client secret ไม่ถูกต้อง');
+        $before = RvcOne::secretSource();
+        RvcOne::saveSecret($secret);
+        audit('settings.oa_client_secret', 'settings', null, ['set' => $before === 'form'], ['set' => $secret !== '']);
+        return ['ok' => true, 'source' => RvcOne::secretSource()];
+    },
+
+    'POST oa_test' => function () {
+        sys_admin();
+        session_write_close();
+        return RvcOne::testConnection();
+    },
+
     'GET info' => function () {
         sys_admin();
         $pdo = db();

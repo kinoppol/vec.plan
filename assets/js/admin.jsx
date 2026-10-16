@@ -151,7 +151,48 @@ function ResetPassword({ user, onClose }) {
 function InstitutionsPage() {
   const { meta } = useApp();
   if (!meta.permissions.institutions) return <Forbidden />;
-  return <div className="stack"><LoginMethods />{meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />}</div>;
+  return <div className="stack"><LoginMethods /><OaConnection />{meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />}</div>;
+}
+
+/** RVC-ONE client secret: write-only (the saved value is never shown), stored encrypted. */
+function OaConnection() {
+  const { toast } = useApp();
+  const { data, reload } = useApi('system/oa_secret');
+  const [secret, setSecret] = useState('');
+  const [test, setTest] = useState(null);
+  const [busy, run] = useBusy();
+  if (!data) return null;
+  const save = value => run(async () => {
+    if (value === '' && !window.confirm('ลบ client secret ที่บันทึกไว้? การซิงค์ผู้ใช้จะหยุดทำงาน')) return;
+    try {
+      await post('system/oa_secret', { secret: value });
+      setSecret(''); setTest(null);
+      toast(value ? 'บันทึก client secret แล้ว' : 'ลบ client secret แล้ว', 'ok');
+      reload();
+    } catch (e) { toast(e.message, 'err'); }
+  });
+  const check = () => run(async () => {
+    setTest(null);
+    try { setTest(await post('system/oa_test')); } catch (e) { setTest({ ok: false, message: e.message }); }
+  });
+  const status = { server: 'ตั้งไว้บนเซิร์ฟเวอร์ (env / config/oa.local.php) — ค่านี้มีผลก่อนค่าที่ใส่ในหน้านี้', form: 'บันทึกไว้แล้ว (เข้ารหัส)' }[data.source] || 'ยังไม่ได้ใส่';
+  return (
+    <div className="card card-b stack">
+      <h3 className="h">การเชื่อมต่อ RVC-ONE</h3>
+      <div className="xs muted" style={{ lineHeight: 1.7 }}>
+        client_id: <span className="mono">{data.client_id}</span> · redirect_uri: <span className="mono">{data.redirect_uri}</span><br />
+        client secret: <b>{status}</b>
+      </div>
+      <form className="row" style={{ gap: 8, flexWrap: 'wrap' }} onSubmit={e => { e.preventDefault(); if (secret.trim()) save(secret.trim()); }}>
+        <input className="input mono grow" type="password" autoComplete="new-password" value={secret} onChange={e => setSecret(e.target.value)}
+          placeholder={data.source ? 'ใส่ค่าใหม่เพื่อเปลี่ยน' : 'client secret จากหน้าแก้ไขแอปของ RVC-ONE'} style={{ minWidth: 240 }} />
+        <button className="btn primary" disabled={busy || !secret.trim()}>บันทึก</button>
+        <button type="button" className="btn" onClick={check} disabled={busy || !data.source}>ทดสอบการเชื่อมต่อ</button>
+        {data.source === 'form' && <button type="button" className="btn" onClick={() => save('')} disabled={busy}>ลบ</button>}
+      </form>
+      {test && <Alert tone={test.ok ? 'green' : test.error === 'sync_disabled' ? 'yellow' : 'red'}>{test.message}</Alert>}
+    </div>
+  );
 }
 
 const LOGIN_METHOD_OPTIONS = [

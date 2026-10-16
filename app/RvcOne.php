@@ -22,13 +22,56 @@ class RvcOne
 
     public static function config(): array
     {
+        $c = self::fileConfig();
+        // Secret precedence: env OA_CLIENT_SECRET / config/oa.local.php, then the one saved from the admin form.
+        if (empty($c['client_secret'])) {
+            $stored = (string)system_setting('oa_client_secret', '');
+            $c['client_secret'] = $stored !== '' ? (Assistant::decrypt($stored) ?: null) : null;
+        }
+        return array_replace($c, self::$override);
+    }
+
+    private static function fileConfig(): array
+    {
         static $c = null;
         if ($c === null) {
             $c = require APP_ROOT . '/config/oa.php';
             $local = APP_ROOT . '/config/oa.local.php';
             if (is_file($local)) $c = array_replace($c, (array)(require $local));
         }
-        return array_replace($c, self::$override);
+        return $c;
+    }
+
+    /** Where the client secret comes from: server (env / oa.local.php, which wins), form (database) or null. */
+    public static function secretSource(): ?string
+    {
+        if (!empty(self::fileConfig()['client_secret'])) return 'server';
+        return (string)system_setting('oa_client_secret', '') !== '' ? 'form' : null;
+    }
+
+    /** Saved encrypted with the installation key; '' removes it. */
+    public static function saveSecret(string $secret): void
+    {
+        set_setting('oa_client_secret', $secret === '' ? null : Assistant::encrypt($secret), 0);
+    }
+
+    /** One small User-sync request: checks client_id + secret and whether the API is enabled for this app. */
+    public static function testConnection(): array
+    {
+        if (empty(self::config()['client_secret'])) return ['ok' => false, 'message' => 'ยังไม่ได้ใส่ client secret'];
+        try {
+            $p = self::fetchPage(array_filter(['type' => self::config()['sync_type'] ?? null, 'limit' => 1]));
+            return ['ok' => true, 'message' => 'เชื่อมต่อสำเร็จ (เวลาเซิร์ฟเวอร์ ' . ($p['server_time'] ?? '-') . ')'];
+        } catch (OaApiError $e) {
+            $why = [
+                'invalid_client' => 'client secret ไม่ถูกต้อง หรือแอปถูกปิดใช้งานใน RVC-ONE',
+                'sync_disabled' => 'client secret ถูกต้อง แต่ผู้ดูแล RVC-ONE ยังไม่ได้เปิดสิทธิ์ «API ซิงค์ข้อมูลผู้ใช้» ให้แอปนี้',
+                'type_not_allowed' => 'client secret ถูกต้อง แต่แอปไม่ได้รับอนุญาตประเภทผู้ใช้ที่ตั้งไว้ (sync_type)',
+            ][$e->error] ?? $e->getMessage();
+            return ['ok' => false, 'message' => $why, 'error' => $e->error];
+        } catch (RuntimeException $e) {
+            return ['ok' => false, 'message' => $e->getMessage()];
+        }
     }
 
     public static function authorizeUrl(string $state): string
@@ -149,7 +192,7 @@ class RvcOne
     {
         $c = self::config();
         $inst = (int)$c['institution_id'];
-        if (empty($c['client_secret'])) throw new RuntimeException('ยังไม่ได้ตั้งค่า OA_CLIENT_SECRET');
+        if (empty($c['client_secret'])) throw new RuntimeException('ยังไม่ได้ใส่ client secret ของ RVC-ONE (หน้าสถานศึกษา › การเชื่อมต่อ RVC-ONE)');
         institution($inst); // must exist
 
         $lock = fopen(APP_ROOT . '/storage/logs/oa-sync.lock', 'c');

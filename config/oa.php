@@ -1,6 +1,7 @@
 <?php
-// RVC-ONE (SSO gateway + User-sync API). The only place these values live; read through oa_config().
-// client_secret is never committed: set the environment variable OA_CLIENT_SECRET, or put
+// RVC-ONE (SSO gateway + User-sync API). The only place these values live; read through RvcOne::config().
+// client_secret is never committed: enter it in the app (สถานศึกษา › การเชื่อมต่อ RVC-ONE, stored encrypted),
+// or on the server set the environment variable OA_CLIENT_SECRET, or put
 // ['client_secret' => '...'] in config/oa.local.php (git-ignored), which overrides any key below.
 return [
     'authorize_url'   => 'http://workspace.rvc.ac.th/oa/index.php',

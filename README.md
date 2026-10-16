@@ -151,8 +151,9 @@ tests/run.php          ชุดทดสอบระยะที่ 1
 
 ## เข้าสู่ระบบและซิงค์ผู้ใช้จาก RVC-ONE
 
-ค่าการเชื่อมต่อทั้งหมดอยู่ที่ [`config/oa.php`](config/oa.php) · **client_secret ไม่อยู่ใน git** — ตั้ง env `OA_CLIENT_SECRET`
-หรือสร้าง `config/oa.local.php` ที่ `return ['client_secret' => '...'];` (ไฟล์นี้ถูก ignore)
+ค่าการเชื่อมต่ออยู่ที่ [`config/oa.php`](config/oa.php) · **client_secret ไม่อยู่ใน git** — ผู้ดูแลระบบใส่ที่หน้า **สถานศึกษา › การเชื่อมต่อ RVC-ONE**
+(เก็บเข้ารหัสด้วยคีย์ของระบบ ไม่แสดงค่ากลับ มีปุ่มทดสอบการเชื่อมต่อ) หรือตั้งบนเซิร์ฟเวอร์ด้วย env `OA_CLIENT_SECRET` / `config/oa.local.php` ซึ่งมีผลก่อน
+· วิธีเข้าสู่ระบบ (รหัสผ่าน / SSO / ทั้งสองแบบ) ตั้งที่หน้าเดียวกัน — โหมดเฉพาะ SSO ผู้ดูแลระบบยังเข้าด้วยรหัสผ่านได้
 
 - **SSO:** ปุ่ม "ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE" ที่หน้าเข้าสู่ระบบ → `auth/login` (สร้าง state) → RVC-ONE → POST กลับที่ `auth/callback`
   ซึ่งตรวจ state และ verify โทเคนกับ RVC-ONE ฝั่งเซิร์ฟเวอร์ทุกครั้ง (ต้องเปิด `mod_rewrite` — กฎอยู่ใน `.htaccess` ส่งต่อไปที่ `sso.php`)

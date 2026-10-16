@@ -707,9 +707,28 @@ test('login methods: SSO only keeps password sign-in for administrators', functi
     as_user($rmsAdmin);
     api_call('POST', 'system/login_methods', [], ['login_methods' => 'both']);
 });
+test('client secret from the admin form: stored encrypted, never returned, used for Basic auth', function () use ($rmsAdmin, $finance, &$oaQueue, $oaLog, $pdo) {
+    as_user($rmsAdmin);
+    eq(null, api_call('GET', 'system/oa_secret')['source']);
+    api_call('POST', 'system/oa_secret', [], ['secret' => 'form-secret-1']);
+    $stored = (string)$pdo->query("SELECT svalue FROM settings WHERE institution_id = 0 AND skey = 'oa_client_secret'")->fetchColumn();
+    ok(str_starts_with($stored, 'enc1:') && !str_contains($stored, 'form-secret-1'), 'stored encrypted');
+    $info = api_call('GET', 'system/oa_secret');
+    eq('form', $info['source']);
+    ok(!str_contains(json_encode($info), 'form-secret-1'), 'not returned');
+    $oaQueue = [[403, json_encode(['ok' => false, 'error' => 'sync_disabled'])]];
+    $t = api_call('POST', 'system/oa_test');
+    ok(!$t['ok'] && $t['error'] === 'sync_disabled');
+    ok(in_array('Authorization: Basic ' . base64_encode('cl_9cfd5dfdba:form-secret-1'), $oaLog[count($oaLog) - 1]['headers'], true));
+    as_user($finance);
+    throws(fn() => api_call('POST', 'system/oa_secret', [], ['secret' => 'x']));
+    as_user($rmsAdmin);
+    api_call('POST', 'system/oa_secret', [], ['secret' => '']);
+    eq(null, RvcOne::secretSource());
+});
 test('sync refuses to run without a client secret', function () {
     RvcOne::$override = ['client_secret' => null];
-    throws(fn() => RvcOne::sync(), 'OA_CLIENT_SECRET');
+    throws(fn() => RvcOne::sync(), 'client secret');
 });
 
 // The rest runs with a secret, as on the server.

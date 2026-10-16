@@ -447,7 +447,7 @@ function OaSyncCard() {
         ซิงค์อัตโนมัติด้วย cron (<span className="mono">php cli/oa_sync.php</span>) · ประเภทผู้ใช้: <span className="mono">{data.type || 'all'}</span><br />
         {L ? <Fragment>ซิงค์สำเร็จล่าสุด {thDate(L.finished_at, true)} — ได้รับ {fmt0(L.received)} · เพิ่ม {fmt0(L.created)} · ปรับ {fmt0(L.updated)} · ระงับ {fmt0(L.suspended)}</Fragment> : 'ยังไม่เคยซิงค์'}
       </div>
-      {!data.configured && <Alert tone="yellow">ยังไม่ได้ตั้งค่า OA_CLIENT_SECRET บนเซิร์ฟเวอร์ (env หรือ config/oa.local.php)</Alert>}
+      {!data.configured && <Alert tone="yellow">ยังไม่ได้ใส่ client secret ของ RVC-ONE — ผู้ดูแลระบบใส่ได้ที่หน้าสถานศึกษา › การเชื่อมต่อ RVC-ONE</Alert>}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn primary" onClick={() => go(false)} disabled={busy || !data.configured}>{busy ? 'กำลังซิงค์…' : 'ซิงค์เฉพาะที่เปลี่ยน'}</button>
         <button className="btn" onClick={() => go(true)} disabled={busy || !data.configured}>ซิงค์ทั้งหมดใหม่</button>
