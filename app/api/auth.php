@@ -28,6 +28,8 @@ return [
             fail('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 401);
         }
         if ($u['institution_id'] && !$u['institution_active']) fail('สถานศึกษาของบัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบกลาง', 403);
+        // Checked after the password so the answer does not reveal which accounts are administrators.
+        if (!password_login_allowed((int)$u['id'])) fail('ระบบกำหนดให้เข้าสู่ระบบผ่าน RVC-ONE เท่านั้น', 403);
         if (password_needs_rehash($u['password_hash'], PASSWORD_DEFAULT)) {
             $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($password, PASSWORD_DEFAULT), $u['id']]);
         }

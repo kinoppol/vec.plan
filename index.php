@@ -14,6 +14,7 @@ $loggedIn = false;
 try {
     $loggedIn = current_user() !== null;
     $org = $loggedIn && current_institution_id() ? institution(current_institution_id())['name'] : public_org_name();
+    $loginMethods = login_methods();
 } catch (Throwable $e) {
     http_response_code(503);
     echo '<!doctype html><meta charset="utf-8"><title>ระบบขัดข้อง</title><body style="font-family:sans-serif;padding:40px">'
@@ -26,6 +27,7 @@ $boot = [
     'csrf' => $_SESSION['csrf'],
     'logged_in' => $loggedIn,
     'org_name' => $org,
+    'login_methods' => $loginMethods,
     'version' => APP_VERSION,
 ];
 // Script order matters: each file registers components on window for the next ones.

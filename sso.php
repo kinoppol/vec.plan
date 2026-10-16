@@ -41,6 +41,9 @@ $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 $home = sso_home();
 
 $step = (string)($_GET['step'] ?? '');
+if (login_methods() === 'password') {
+    sso_page(403, 'ปิดการเข้าสู่ระบบผ่าน RVC-ONE', 'ผู้ดูแลระบบกำหนดให้เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเท่านั้น');
+}
 
 if ($step === 'login') {
     $state = bin2hex(random_bytes(24));

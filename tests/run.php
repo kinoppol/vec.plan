@@ -693,6 +693,20 @@ test('SSO login creates the user once and finds the same account by id later', f
     eq((int)$u['id'], (int)RvcOne::userForLogin(['id' => 9001, 'first_name' => 'สมหญิง', 'last_name' => 'เปลี่ยนชื่อ'])['id']);
     eq('สมหญิง เปลี่ยนชื่อ', $oaUser(9001)['name']);
 });
+test('login methods: SSO only keeps password sign-in for administrators', function () use ($rmsAdmin, $finance) {
+    eq('both', login_methods());
+    ok(password_login_allowed($finance));
+    as_user($rmsAdmin);
+    api_call('POST', 'system/login_methods', [], ['login_methods' => 'sso']);
+    eq('sso', login_methods());
+    ok(!password_login_allowed($finance), 'ordinary user refused');
+    ok(password_login_allowed($rmsAdmin), 'admin kept as a way in');
+    throws(fn() => api_call('POST', 'system/login_methods', [], ['login_methods' => 'nope']), 'ไม่ถูกต้อง');
+    as_user($finance);
+    throws(fn() => api_call('POST', 'system/login_methods', [], ['login_methods' => 'password']));
+    as_user($rmsAdmin);
+    api_call('POST', 'system/login_methods', [], ['login_methods' => 'both']);
+});
 test('sync refuses to run without a client secret', function () {
     RvcOne::$override = ['client_secret' => null];
     throws(fn() => RvcOne::sync(), 'OA_CLIENT_SECRET');

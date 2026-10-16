@@ -218,6 +218,24 @@ function system_setting(string $key, $default = null)
     return setting($key, $default, 0);
 }
 
+const LOGIN_METHODS = ['both', 'password', 'sso'];
+
+/** How people may sign in (system-wide, the login page has no institution): password, sso (RVC-ONE) or both. */
+function login_methods(): string
+{
+    $m = (string)system_setting('login_methods', 'both');
+    return in_array($m, LOGIN_METHODS, true) ? $m : 'both';
+}
+
+/** With SSO only, administrators keep password sign-in as a way in when RVC-ONE is down. */
+function password_login_allowed(int $userId): bool
+{
+    if (login_methods() !== 'sso') return true;
+    $st = db()->prepare("SELECT 1 FROM role_assignments WHERE user_id = ? AND role IN ('admin', 'super_admin') LIMIT 1");
+    $st->execute([$userId]);
+    return (bool)$st->fetchColumn();
+}
+
 // ---------------------------------------------------------------- institutions
 
 /** 'single' (one institution, its admin runs the system) or 'multi' (central admin + many institutions). */

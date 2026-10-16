@@ -42,6 +42,11 @@ function Login({ onDone }) {
   const [p, setP] = useState('');
   const [err, setErr] = useState('');
   const [busy, run] = useBusy();
+  const methods = BOOT.login_methods || 'both';
+  // SSO only: the password form stays reachable for administrators (when RVC-ONE is down).
+  const [adminForm, setAdminForm] = useState(false);
+  const showPassword = methods !== 'sso' || adminForm;
+  const ssoButton = <a className={'btn' + (methods === 'sso' ? ' primary' : '')} href={BOOT.base + 'auth/login'} style={{ height: 40, justifyContent: 'center' }}>ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>;
   const submit = e => {
     e.preventDefault();
     setErr('');
@@ -64,13 +69,30 @@ function Login({ onDone }) {
           </div>
         </div>
         <div className="card">
-          <Field label="ชื่อผู้ใช้หรืออีเมล"><input className="input" value={u} onChange={e => setU(e.target.value)} autoComplete="username" autoFocus required /></Field>
-          <Field label="รหัสผ่าน"><input className="input" type="password" value={p} onChange={e => setP(e.target.value)} autoComplete="current-password" required /></Field>
-          {err && <Alert tone="red">{err}</Alert>}
-          <button className="btn primary" disabled={busy} style={{ height: 40 }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
-          <div className="xs faint" style={{ textAlign: 'center', margin: '12px 0 8px' }}>หรือ</div>
-          <a className="btn" href={BOOT.base + 'auth/login'} style={{ height: 40, justifyContent: 'center' }}>ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
+          {methods === 'sso' && !adminForm && ssoButton}
+          {showPassword && (
+            <Fragment>
+              {methods === 'sso' && <div className="sm muted" style={{ marginBottom: 10 }}>เข้าสู่ระบบด้วยรหัสผ่าน (เฉพาะผู้ดูแลระบบ)</div>}
+              <Field label="ชื่อผู้ใช้หรืออีเมล"><input className="input" value={u} onChange={e => setU(e.target.value)} autoComplete="username" autoFocus required /></Field>
+              <Field label="รหัสผ่าน"><input className="input" type="password" value={p} onChange={e => setP(e.target.value)} autoComplete="current-password" required /></Field>
+              {err && <Alert tone="red">{err}</Alert>}
+              <button className="btn primary" disabled={busy} style={{ height: 40 }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
+            </Fragment>
+          )}
+          {methods === 'both' && (
+            <Fragment>
+              <div className="xs faint" style={{ textAlign: 'center', margin: '12px 0 8px' }}>หรือ</div>
+              {ssoButton}
+            </Fragment>
+          )}
         </div>
+        {methods === 'sso' && (
+          <div className="xs" style={{ textAlign: 'center', marginTop: 12 }}>
+            <a href="#" onClick={e => { e.preventDefault(); setErr(''); setAdminForm(!adminForm); }}>
+              {adminForm ? 'กลับไปลงชื่อเข้าใช้ผ่าน RVC-ONE' : 'ผู้ดูแลระบบ: ลงชื่อเข้าใช้ด้วยรหัสผ่าน'}
+            </a>
+          </div>
+        )}
         <div className="xs faint" style={{ textAlign: 'center', marginTop: 14 }}>เวอร์ชัน {BOOT.version}</div>
       </form>
     </div>

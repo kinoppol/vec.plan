@@ -151,7 +151,36 @@ function ResetPassword({ user, onClose }) {
 function InstitutionsPage() {
   const { meta } = useApp();
   if (!meta.permissions.institutions) return <Forbidden />;
-  return meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />;
+  return <div className="stack"><LoginMethods />{meta.tenancy.mode === 'multi' ? <InstitutionList /> : <EnableMulti />}</div>;
+}
+
+const LOGIN_METHOD_OPTIONS = [
+  ['both', 'รหัสผ่าน และ RVC-ONE (SSO)', 'ผู้ใช้เลือกได้ทั้งสองแบบ'],
+  ['password', 'เฉพาะรหัสผ่าน', 'ซ่อนปุ่ม RVC-ONE และปิดการเข้าสู่ระบบผ่าน SSO'],
+  ['sso', 'เฉพาะ RVC-ONE (SSO)', 'ผู้ใช้ทั่วไปเข้าด้วยรหัสผ่านไม่ได้ · ผู้ดูแลระบบยังเข้าด้วยรหัสผ่านได้จากลิงก์ในหน้าเข้าสู่ระบบ (ใช้เมื่อ SSO ขัดข้อง)'],
+];
+
+/** System-wide sign-in methods (the login page is shared by every institution). */
+function LoginMethods() {
+  const { toast } = useApp();
+  const { data, reload } = useApi('system/login_methods');
+  const [busy, run] = useBusy();
+  if (!data) return null;
+  const save = m => run(async () => {
+    try { await post('system/login_methods', { login_methods: m }); toast('บันทึกวิธีเข้าสู่ระบบแล้ว', 'ok'); reload(); }
+    catch (e) { toast(e.message, 'err'); }
+  });
+  return (
+    <div className="card card-b stack">
+      <h3 className="h">วิธีเข้าสู่ระบบ</h3>
+      {LOGIN_METHOD_OPTIONS.map(([k, label, hint]) => (
+        <label key={k} className="row" style={{ gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+          <input type="radio" name="login_methods" checked={data.login_methods === k} disabled={busy} onChange={() => save(k)} style={{ marginTop: 4 }} />
+          <div><div style={{ fontWeight: 500 }}>{label}</div><div className="xs muted">{hint}</div></div>
+        </label>
+      ))}
+    </div>
+  );
 }
 
 function EnableMulti() {

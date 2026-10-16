@@ -207,6 +207,21 @@ return [
         });
     },
 
+    'GET login_methods' => function () {
+        sys_admin();
+        return ['login_methods' => login_methods()];
+    },
+
+    'POST login_methods' => function () {
+        sys_admin();
+        $m = (string)(body()['login_methods'] ?? '');
+        if (!in_array($m, LOGIN_METHODS, true)) fail('วิธีเข้าสู่ระบบไม่ถูกต้อง');
+        $before = login_methods();
+        set_setting('login_methods', $m, 0);
+        audit('settings.login_methods', 'settings', null, ['login_methods' => $before], ['login_methods' => $m]);
+        return ['ok' => true, 'login_methods' => $m];
+    },
+
     'GET info' => function () {
         sys_admin();
         $pdo = db();
