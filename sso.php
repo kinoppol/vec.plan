@@ -83,7 +83,7 @@ try {
     $oaUser = RvcOne::verifyToken($tokenId, $tokenKey);
 } catch (Throwable $e) {
     sso_log('verify failed: ' . $e->getMessage());
-    sso_page(401, 'เข้าสู่ระบบไม่สำเร็จ', 'ติดต่อ RVC-ONE เพื่อตรวจสอบการเข้าสู่ระบบไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+    sso_page(401, 'เข้าสู่ระบบไม่สำเร็จ', 'ตรวจสอบการเข้าสู่ระบบกับ RVC-ONE ไม่สำเร็จ: ' . $e->getMessage() . ' — กรุณาลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลระบบ');
 }
 if ($oaUser === null) {
     sso_log('verify: invalid token');

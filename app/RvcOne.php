@@ -89,11 +89,19 @@ class RvcOne
     {
         // Shape check only; the endpoint is the authority. Never trust the user id inside token_id.
         if (!preg_match('/^\d+_\d+$/', $tokenId) || !preg_match('/^[0-9a-f]{64}$/i', $tokenKey)) return null;
-        [$status, $raw] = self::request('POST', self::config()['verify_url'],
-            ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
-            http_build_query(['token_id' => $tokenId, 'token_key' => $tokenKey]), 1);
+        $c = self::config();
+        // The endpoint authenticates the app too (HTTP Basic client_id:client_secret; it answers invalid_client without it).
+        $headers = ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'];
+        if (!empty($c['client_secret'])) $headers[] = 'Authorization: Basic ' . base64_encode($c['client_id'] . ':' . $c['client_secret']);
+        [$status, $raw] = self::request('POST', $c['verify_url'], $headers,
+            http_build_query(['token_id' => $tokenId, 'token_key' => $tokenKey, 'client_id' => $c['client_id']]), 1);
         $data = json_decode($raw, true);
         if ($status === 200 && is_array($data) && ($data['valid'] ?? false) === true && isset($data['user']['id'])) return $data['user'];
+        if (is_array($data) && ($data['error'] ?? '') === 'invalid_client') {
+            // A setup problem on our side, not the user's token.
+            throw new RuntimeException(empty($c['client_secret'])
+                ? 'ยังไม่ได้ใส่ client secret ของ RVC-ONE' : 'RVC-ONE ปฏิเสธ client_id / client secret (invalid_client)');
+        }
         if (in_array($status, [200, 400, 401, 403], true) && is_array($data)) return null;
         throw new RuntimeException('ตรวจสอบโทเคนกับ RVC-ONE ไม่สำเร็จ (HTTP ' . $status . ')');
     }

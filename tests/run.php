@@ -675,7 +675,14 @@ test('verify_token: valid → user, invalid → null, endpoint down → exceptio
     $oaVerify = [200, json_encode(['valid' => true, 'user' => ['id' => 42, 'first_name' => 'ก', 'last_name' => 'ข']])];
     eq(42, RvcOne::verifyToken($id, $key)['id']);
     $last = $oaLog[count($oaLog) - 1];
-    eq(['token_id' => $id, 'token_key' => $key], $last['q']);
+    eq(['token_id' => $id, 'token_key' => $key, 'client_id' => 'cl_9cfd5dfdba'], $last['q']);
+    RvcOne::$override = ['client_secret' => 'verify-secret'];
+    RvcOne::verifyToken($id, $key);
+    ok(in_array('Authorization: Basic ' . base64_encode('cl_9cfd5dfdba:verify-secret'), $oaLog[count($oaLog) - 1]['headers'], true), 'app authenticates to verify_token');
+    $oaVerify = [401, json_encode(['valid' => false, 'error' => 'invalid_client'])];
+    throws(fn() => RvcOne::verifyToken($id, $key), 'invalid_client');
+    RvcOne::$override = [];
+    $oaVerify = [200, json_encode(['valid' => true, 'user' => ['id' => 42, 'first_name' => 'ก', 'last_name' => 'ข']])];
     $oaVerify = [401, json_encode(['valid' => false, 'error' => 'invalid or expired token'])];
     eq(null, RvcOne::verifyToken($id, $key));
     $oaVerify = [502, 'Bad gateway'];
