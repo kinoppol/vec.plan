@@ -636,6 +636,125 @@ test('RMS transfer never takes over a username of another institution', function
     rrmdir_contents(UPLOAD_DIR . '/avatars/i1');
     @rmdir(UPLOAD_DIR . '/avatars/i1');
 });
+// ------------------------------------------------------------------ RVC-ONE (SSO + User-sync API)
+echo "RVC-ONE\n";
+// Fake RVC-ONE: $oaPages[] are served in order per run; every request is recorded (without secrets checked here).
+$oaLog = new ArrayObject();
+$oaQueue = [];
+$oaVerify = null;
+RvcOne::$sleep = function (int $s) {};
+RvcOne::$transport = function (string $method, string $url, array $headers, ?string $body) use ($oaLog, &$oaQueue, &$oaVerify) {
+    parse_str((string)$body, $q);
+    $oaLog[] = ['url' => $url, 'q' => $q, 'headers' => $headers];
+    if (str_contains($url, 'verify_token')) return $oaVerify;
+    if (!$oaQueue) throw new RuntimeException('no fake page left');
+    $next = array_shift($oaQueue);
+    if ($next instanceof Throwable) throw $next;
+    return $next;
+};
+$oaPage = fn(array $users, ?string $cursor = null, string $time = '2026-10-16T10:00:00+07:00') => [200, json_encode(['ok' => true, 'server_time' => $time,
+    'count' => count($users), 'has_more' => $cursor !== null, 'next_cursor' => $cursor, 'users' => $users], JSON_UNESCAPED_UNICODE)];
+$oaPerson = fn(int $id, string $first, array $extra = []) => $extra + ['id' => $id, 'first_name' => $first, 'last_name' => 'ทดสอบ',
+    'department' => 'แผนกสามัญ', 'user_type' => 'staff', 'status' => 'active', 'updated_at' => '2026-10-16T09:00:00+07:00'];
+$oaUser = function (int $oaId) use ($pdo) {
+    $st = $pdo->prepare('SELECT * FROM users WHERE oa_user_id = ?');
+    $st->execute([$oaId]);
+    return $st->fetch() ?: null;
+};
+$oaSince = fn() => setting('oa_sync_since', null, 1);
+
+test('RVC-ONE settings come from one config file; the authorize URL is built from it', function () {
+    $c = RvcOne::config();
+    eq('cl_9cfd5dfdba', $c['client_id']);
+    eq('http://workspace.rvc.ac.th/oa/index.php?client_id=cl_9cfd5dfdba&redirect_uri=https%3A%2F%2Fplan.rvc.ac.th%2Fweb%2Fauth%2Fcallback&state=abc',
+        RvcOne::authorizeUrl('abc'));
+});
+test('verify_token: valid → user, invalid → null, endpoint down → exception; malformed tokens are not sent', function () use (&$oaVerify, $oaLog) {
+    $id = '42_' . (time() + 300);
+    $key = str_repeat('ab', 32);
+    $oaVerify = [200, json_encode(['valid' => true, 'user' => ['id' => 42, 'first_name' => 'ก', 'last_name' => 'ข']])];
+    eq(42, RvcOne::verifyToken($id, $key)['id']);
+    $last = $oaLog[count($oaLog) - 1];
+    eq(['token_id' => $id, 'token_key' => $key], $last['q']);
+    $oaVerify = [401, json_encode(['valid' => false, 'error' => 'invalid or expired token'])];
+    eq(null, RvcOne::verifyToken($id, $key));
+    $oaVerify = [502, 'Bad gateway'];
+    throws(fn() => RvcOne::verifyToken($id, $key), 'HTTP 502');
+    $n = count($oaLog);
+    eq(null, RvcOne::verifyToken('x', $key));
+    eq(null, RvcOne::verifyToken($id, 'short'));
+    eq($n, count($oaLog), 'nothing sent for malformed tokens');
+});
+test('SSO login creates the user once and finds the same account by id later', function () use ($oaUser) {
+    $u = RvcOne::userForLogin(['id' => 9001, 'first_name' => 'สมหญิง', 'last_name' => 'เข้าระบบ', 'username' => 'somying']);
+    eq(1, (int)$u['active']);
+    $row = $oaUser(9001);
+    eq(['somying', 'สมหญิง เข้าระบบ', 'oa', 1], [$row['username'], $row['name'], $row['source'], (int)$row['institution_id']]);
+    eq((int)$u['id'], (int)RvcOne::userForLogin(['id' => 9001, 'first_name' => 'สมหญิง', 'last_name' => 'เปลี่ยนชื่อ'])['id']);
+    eq('สมหญิง เปลี่ยนชื่อ', $oaUser(9001)['name']);
+});
+test('sync refuses to run without a client secret', function () {
+    RvcOne::$override = ['client_secret' => null];
+    throws(fn() => RvcOne::sync(), 'OA_CLIENT_SECRET');
+});
+
+// The rest runs with a secret, as on the server.
+RvcOne::$override = ['client_secret' => 'test-secret'];
+test('full sync: pages via cursor, upsert by id, links an RMS account, since = server_time after the last page', function () use (&$oaQueue, $oaPage, $oaPerson, $oaUser, $oaLog, $oaSince, $pdo) {
+    $pdo->exec("UPDATE users SET email = 'one@example.test' WHERE username = '1000000000001'");
+    $oaQueue = [
+        $oaPage([$oaPerson(101, 'หนึ่ง', ['email' => 'One@Example.test']), $oaPerson(102, 'สอง', ['username' => 'b_finance'])], 'c2'),
+        $oaPage([$oaPerson(103, 'สาม', ['status' => 'suspended'])]),
+    ];
+    $n = count($oaLog);
+    $r = RvcOne::sync();
+    eq([2, 3, 1, 1, 1], [$r['pages'], $r['received'], $r['created'], $r['updated'], $r['suspended']], 'the RMS account counts as updated');
+    eq('2026-10-16T10:00:00+07:00', $oaSince());
+    $first = $oaLog[$n];
+    eq(['type' => 'staff', 'limit' => '500'], $first['q'], 'first call: type + limit, no since');
+    ok(in_array('Authorization: Basic ' . base64_encode('cl_9cfd5dfdba:test-secret'), $first['headers'], true), 'HTTP Basic auth');
+    ok(!str_contains($first['url'], 'secret'), 'secret not in the URL');
+    eq(['cursor' => 'c2'], $oaLog[$n + 1]['q'], 'next page: cursor only');
+    eq('1000000000001', $oaUser(101)['username'], 'existing RMS account linked by e-mail');
+    $two = $oaUser(102);
+    eq('oa102', $two['username'], 'username of another institution not reused');
+    eq(0, (int)$oaUser(103)['active'], 'suspended → inactive');
+});
+test('incremental sync sends since, is idempotent, and a failure mid-run keeps since', function () use (&$oaQueue, $oaPage, $oaPerson, $oaUser, $oaLog, $oaSince, $pdo) {
+    $count = fn() => (int)$pdo->query('SELECT COUNT(*) FROM users WHERE oa_user_id IS NOT NULL')->fetchColumn();
+    $before = $count();
+    $oaQueue = [$oaPage([$oaPerson(101, 'หนึ่ง'), $oaPerson(103, 'สาม', ['status' => 'active'])], null, '2026-10-16T11:00:00+07:00')];
+    $n = count($oaLog);
+    $r = RvcOne::sync();
+    eq('2026-10-16T10:00:00+07:00', $oaLog[$n]['q']['since']);
+    eq([2, 0], [$r['updated'], $r['created']]);
+    eq($before, $count(), 'same ids → no new rows');
+    eq(1, (int)$oaUser(103)['active'], 'reactivated when RVC-ONE says active again');
+    eq('2026-10-16T11:00:00+07:00', $oaSince());
+
+    // A local deactivation survives a sync that reports the same status.
+    $pdo->exec('UPDATE users SET active = 0 WHERE oa_user_id = 101');
+    $oaQueue = [$oaPage([$oaPerson(101, 'หนึ่ง')], 'c2', '2026-10-16T12:00:00+07:00'), [503, 'down'], [503, 'down'], [503, 'down']];
+    throws(fn() => RvcOne::sync(), 'HTTP 503');
+    eq('2026-10-16T11:00:00+07:00', $oaSince(), 'since not moved after a failed run');
+    eq(0, (int)$oaUser(101)['active']);
+});
+test('API errors: sync_disabled is reported, bad_cursor restarts from the first page once', function () use (&$oaQueue, $oaPage, $oaPerson, $oaSince, $oaLog) {
+    $oaQueue = [[403, json_encode(['ok' => false, 'error' => 'sync_disabled', 'message' => 'not enabled'])]];
+    throws(fn() => RvcOne::sync(), 'sync_disabled');
+    $oaQueue = [$oaPage([$oaPerson(104, 'สี่')], 'old'), [400, json_encode(['ok' => false, 'error' => 'bad_cursor'])],
+        $oaPage([$oaPerson(104, 'สี่')], null, '2026-10-16T13:00:00+07:00')];
+    $r = RvcOne::sync();
+    eq([2, 1, 1], [$r['pages'], $r['created'], $r['updated']]);
+    eq('2026-10-16T13:00:00+07:00', $oaSince());
+    $oaQueue = [$oaPage([], null, '2026-10-16T14:00:00+07:00')];
+    $n = count($oaLog);
+    RvcOne::sync(true);
+    ok(!isset($oaLog[$n]['q']['since']), '--full ignores the stored since');
+    RvcOne::$transport = null;
+    RvcOne::$override = [];
+});
+
 test('Backup dump contains tables, data and the ledger triggers', function () use ($pdo) {
     $r = Backup::create($pdo, 'test');
     $sql = gzdecode(file_get_contents(BACKUP_DIR . '/' . $r['file']));

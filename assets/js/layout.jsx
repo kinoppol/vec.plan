@@ -68,6 +68,8 @@ function Login({ onDone }) {
           <Field label="รหัสผ่าน"><input className="input" type="password" value={p} onChange={e => setP(e.target.value)} autoComplete="current-password" required /></Field>
           {err && <Alert tone="red">{err}</Alert>}
           <button className="btn primary" disabled={busy} style={{ height: 40 }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
+          <div className="xs faint" style={{ textAlign: 'center', margin: '12px 0 8px' }}>หรือ</div>
+          <a className="btn" href={BOOT.base + 'auth/login'} style={{ height: 40, justifyContent: 'center' }}>ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
         </div>
         <div className="xs faint" style={{ textAlign: 'center', marginTop: 14 }}>เวอร์ชัน {BOOT.version}</div>
       </form>

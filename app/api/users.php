@@ -165,6 +165,31 @@ return [
         @set_time_limit(900);
         return RmsSync::sync(false);
     },
+    // ---------------------------------------------------------- users from RVC-ONE (User-sync API)
+    'GET oa' => function () {
+        $inst = require_institution();
+        require_admin();
+        $c = RvcOne::config();
+        if ($inst !== (int)$c['institution_id']) return ['enabled' => false];
+        $last = json_decode((string)setting('oa_sync_last', ''), true);
+        return ['enabled' => true, 'configured' => !empty($c['client_secret']), 'since' => setting('oa_sync_since'),
+            'last' => is_array($last) ? $last : null, 'type' => $c['sync_type'] ?? null];
+    },
+
+    'POST oa_sync' => function () {
+        $inst = require_institution();
+        require_admin();
+        if ($inst !== (int)RvcOne::config()['institution_id']) fail('สถานศึกษานี้ไม่ได้เชื่อมกับ RVC-ONE', 403);
+        session_write_close();
+        @set_time_limit(900);
+        try {
+            return RvcOne::sync(!empty(body()['full']));
+        } catch (RuntimeException $e) {
+            if ($e instanceof ApiError) throw $e;
+            fail($e->getMessage(), 502);
+        }
+    },
+
     'POST reset_password' => function () {
         require_admin();
         $b = body();

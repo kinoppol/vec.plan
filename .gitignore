@@ -15,3 +15,6 @@ uploads/*
 Thumbs.db
 .vscode/
 .idea/
+
+# RVC-ONE client secret (see config/oa.php)
+config/oa.local.php

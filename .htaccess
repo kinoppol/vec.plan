@@ -4,3 +4,9 @@ DirectoryIndex index.php
 <FilesMatch "\.(md|lock|log|sql|gz)$">
   Require all denied
 </FilesMatch>
+
+# Sign-in through RVC-ONE: the registered redirect_uri is <app>/auth/callback (no extension, no trailing slash).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^auth/(login|callback)$ sso.php?step=$1 [L,QSA]
+</IfModule>

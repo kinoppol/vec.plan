@@ -148,3 +148,18 @@ storage/               installed.lock, backups/, logs/ (ไม่ commit)
 uploads/               ไฟล์แนบ — เข้าถึงผ่าน API ที่ตรวจสิทธิ์เท่านั้น
 tests/run.php          ชุดทดสอบระยะที่ 1
 ```
+
+## เข้าสู่ระบบและซิงค์ผู้ใช้จาก RVC-ONE
+
+ค่าการเชื่อมต่อทั้งหมดอยู่ที่ [`config/oa.php`](config/oa.php) · **client_secret ไม่อยู่ใน git** — ตั้ง env `OA_CLIENT_SECRET`
+หรือสร้าง `config/oa.local.php` ที่ `return ['client_secret' => '...'];` (ไฟล์นี้ถูก ignore)
+
+- **SSO:** ปุ่ม "ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE" ที่หน้าเข้าสู่ระบบ → `auth/login` (สร้าง state) → RVC-ONE → POST กลับที่ `auth/callback`
+  ซึ่งตรวจ state และ verify โทเคนกับ RVC-ONE ฝั่งเซิร์ฟเวอร์ทุกครั้ง (ต้องเปิด `mod_rewrite` — กฎอยู่ใน `.htaccess` ส่งต่อไปที่ `sso.php`)
+  · URL เริ่ม SSO สำหรับกรอกในหน้าแก้ไขแอปของ RVC-ONE: `https://plan.rvc.ac.th/web/auth/login`
+- **ผู้ใช้จับคู่ด้วย id ของ RVC-ONE** (`users.oa_user_id`) · บัญชีเดิม (เช่นจาก RMS) ในสถานศึกษาเดียวกันถูกผูกครั้งแรกด้วยชื่อผู้ใช้หรืออีเมล
+  · ผู้ใช้ใหม่เข้าสถานศึกษา `institution_id` ใน config ได้รหัสผ่านสุ่ม (เข้าผ่าน RVC-ONE) · บทบาทยังต้องกำหนดเอง
+- **ซิงค์:** `php cli/oa_sync.php` (เฉพาะที่เปลี่ยนตั้งแต่รอบก่อน) หรือ `php cli/oa_sync.php --full` · ตั้ง cron เช่น
+  `0,30 * * * * php /var/www/web/cli/oa_sync.php >> /var/www/web/storage/logs/oa-sync.log 2>&1`
+  หรือกดจาก **ตั้งค่า › ข้อมูลผู้ใช้จาก RMS** · `since` ขยับเป็น `server_time` เฉพาะเมื่อครบทุกหน้า
+  · `status = suspended` ปิดบัญชี และ active เปิดคืน (เฉพาะเมื่อสถานะจาก RVC-ONE เปลี่ยน — การปิดบัญชีในระบบนี้เองไม่ถูกเปิดทับ)

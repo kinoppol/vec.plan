@@ -425,6 +425,37 @@ function RmsProgress({ dry, since }) {
   );
 }
 
+/** Users from RVC-ONE (User-sync API): shown only for the institution linked in config/oa.php. */
+function OaSyncCard() {
+  const { toast } = useApp();
+  const { data, reload } = useApi('users/oa');
+  const [busy, run] = useBusy();
+  if (!data || !data.enabled) return null;
+  const go = full => run(async () => {
+    if (full && !window.confirm('ดึงรายชื่อผู้ใช้ทั้งหมดจาก RVC-ONE ใหม่?')) return;
+    try {
+      const r = await post('users/oa_sync', { full });
+      toast(`ซิงค์แล้ว: เพิ่ม ${r.created} · ปรับ ${r.updated} · ระงับ ${r.suspended}`, 'ok');
+      reload();
+    } catch (e) { toast(e.message, 'err'); }
+  });
+  const L = data.last;
+  return (
+    <div className="card card-b stack">
+      <h3 className="h">ผู้ใช้จาก RVC-ONE</h3>
+      <div className="sm muted" style={{ lineHeight: 1.7 }}>
+        ซิงค์อัตโนมัติด้วย cron (<span className="mono">php cli/oa_sync.php</span>) · ประเภทผู้ใช้: <span className="mono">{data.type || 'all'}</span><br />
+        {L ? <Fragment>ซิงค์สำเร็จล่าสุด {thDate(L.finished_at, true)} — ได้รับ {fmt0(L.received)} · เพิ่ม {fmt0(L.created)} · ปรับ {fmt0(L.updated)} · ระงับ {fmt0(L.suspended)}</Fragment> : 'ยังไม่เคยซิงค์'}
+      </div>
+      {!data.configured && <Alert tone="yellow">ยังไม่ได้ตั้งค่า OA_CLIENT_SECRET บนเซิร์ฟเวอร์ (env หรือ config/oa.local.php)</Alert>}
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn primary" onClick={() => go(false)} disabled={busy || !data.configured}>{busy ? 'กำลังซิงค์…' : 'ซิงค์เฉพาะที่เปลี่ยน'}</button>
+        <button className="btn" onClick={() => go(true)} disabled={busy || !data.configured}>ซิงค์ทั้งหมดใหม่</button>
+      </div>
+    </div>
+  );
+}
+
 function RmsSettings() {
   const { toast } = useApp();
   const { data, error, loading, reload } = useApi('users/rms');
@@ -454,6 +485,7 @@ function RmsSettings() {
   const R = result;
   return (
     <div className="stack">
+      <OaSyncCard />
       <div className="card card-b stack">
         <h3 className="h">แหล่งข้อมูลผู้ใช้ (ระบบ RMS)</h3>
         <Field label="URL ของระบบ RMS ของสถานศึกษา" hint="เฉพาะส่วนต้นของที่อยู่ เช่น http://rms.rvc.ac.th — แต่ละสถานศึกษาตั้งค่าแยกกัน">
@@ -510,4 +542,4 @@ function RmsSettings() {
   );
 }
 
-Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor, RmsSettings, RmsProgress });
+Object.assign(window, { SettingsPage, GeneralSettings, UnitSettings, FundSettings, CategorySettings, AlignmentSettings, ChainSettings, ChainEditor, SettingsEditor, RmsSettings, RmsProgress, OaSyncCard });
