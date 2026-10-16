@@ -17,7 +17,7 @@ return [
                 'today' => today(),
                 'fy' => null, 'current_fy' => null, 'fiscal_year' => null, 'fiscal_years' => [],
                 'user' => ['id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['name'], 'position_title' => $u['position_title'],
-                    'roles' => [['role' => 'super_admin', 'label' => ROLES['super_admin'], 'unit_name' => null]]],
+                    'roles' => [['role' => 'super_admin', 'label' => ROLES['super_admin'], 'short' => ROLE_SHORT['super_admin'], 'unit_name' => null]]],
                 'permissions' => ['super_admin' => true, 'system' => true, 'audit' => true, 'institutions' => true],
                 'assistant' => ['enabled' => false],
                 'tenancy' => $tenancy,
@@ -30,7 +30,7 @@ return [
         $inst = institution($u['institution_id']);
         $fyId = request_fy();
         $fy = fiscal_year($fyId);
-        $roles = array_map(fn($r) => ['role' => $r['role'], 'label' => ROLES[$r['role']] ?? $r['role'], 'unit_name' => $r['unit_name']], roles_for($u, $fyId));
+        $roles = array_map(fn($r) => ['role' => $r['role'], 'label' => ROLES[$r['role']] ?? $r['role'], 'short' => ROLE_SHORT[$r['role']] ?? $r['role'], 'unit_name' => $r['unit_name']], roles_for($u, $fyId));
 
         $st = $pdo->prepare('SELECT id, parent_id, code, name, color_token AS color, fund_type, permit_rule, is_leaf, active, sort
             FROM fund_sources WHERE fiscal_year_id = ? ORDER BY sort, id');

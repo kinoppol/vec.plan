@@ -209,6 +209,8 @@ function Topbar({ onToggle, onLogout }) {
   };
   const u = meta.user;
   const roleText = u.roles.length ? u.roles.map(r => r.label + (r.unit_name ? ' · ' + r.unit_name : '')).join(', ') : 'ยังไม่มีบทบาทในปีนี้';
+  // The chip shows short names, each role once (no units); the menu below keeps the full text.
+  const roleShort = u.roles.length ? [...new Set(u.roles.map(r => r.short || r.label))].join(' · ') : roleText;
   return (
     <header className="topbar">
       <button className="icon-btn" onClick={onToggle} title="ยุบ/ขยายเมนู" aria-label="ยุบ/ขยายเมนู"><Icon name="menu" /></button>
@@ -229,7 +231,7 @@ function Topbar({ onToggle, onLogout }) {
         <Avatar user={u} />
         <div className="tx" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
           <span className="n">{u.name}</span>
-          <span className="r">{u.position_title || roleText}</span>
+          <span className="r">{u.position_title || roleShort}</span>
         </div>
       </button>
       {open && (

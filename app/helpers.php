@@ -15,6 +15,13 @@ const ROLES = [
     'super_admin'     => 'ผู้ดูแลระบบกลาง',
 ];
 
+// Short names for tight places (the user chip in the top bar).
+const ROLE_SHORT = [
+    'proposer' => 'ผู้เสนอโครงการ', 'unit_head' => 'หัวหน้างาน', 'division_deputy' => 'รองฯ ฝ่าย', 'planner' => 'งานแผนฯ',
+    'planning_deputy' => 'รองฯ แผนงาน', 'director' => 'ผู้อำนวยการ', 'finance' => 'การเงิน', 'procurement' => 'พัสดุ',
+    'board_viewer' => 'กรรมการ', 'admin' => 'ผู้ดูแลระบบ', 'super_admin' => 'ผู้ดูแลระบบกลาง',
+];
+
 // Roles an institution admin may assign (super_admin exists only in multi-institution mode).
 const INSTITUTION_ROLES = ['proposer', 'unit_head', 'division_deputy', 'planner', 'planning_deputy', 'director', 'finance', 'procurement', 'board_viewer', 'admin'];
 
