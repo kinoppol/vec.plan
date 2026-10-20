@@ -119,6 +119,7 @@ function ProjectPage() {
   const { params } = parseHash();
   const { data, error, loading, reload } = useApi('projects/show', { id: params.id });
   const [tab, setTab] = useState('overview');
+  const [editing, setEditing] = useState(false);
   const ledger = useApi('ledger/index', { project_id: params.id, per: 200 }, [tab === 'ledger']);
   if (loading && !data) return <Skeleton />;
   if (error) return <LoadError error={error} onRetry={reload} />;
@@ -132,6 +133,7 @@ function ProjectPage() {
         <div className="row wrap" style={{ gap: 8 }}>
           <span className="mono sm" style={{ padding: '2px 8px', borderRadius: 4, background: 'var(--track)', color: 'var(--text-2)' }}>{p.code}</span>
           <StatusBadge status={p.status} /><HealthDot health={p.health} />
+          {data.can_edit && <button className="btn sm" style={{ marginLeft: 'auto', order: 99 }} onClick={() => setEditing(true)}>แก้ไขโครงการ</button>}
           {data.balances.map(b => <FundTag key={b.fund_source_id} color={funds.colorOf(b.fund_source_id)}><span className="sm">{funds.label(b.fund_source_id)}</span></FundTag>)}
         </div>
         <h1 className="title" style={{ margin: 0 }}>{p.title}</h1>
@@ -154,6 +156,7 @@ function ProjectPage() {
           </div>
         </div>
       </div>
+      {editing && <ApprovedProjectEditor edit={data} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); ledger.reload && ledger.reload(); }} />}
       <div className="row" style={{ gap: 2, borderBottom: '1px solid var(--chip-line)', overflowX: 'auto' }} role="tablist">
         {tabs.map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
@@ -225,11 +228,16 @@ function ProjectPage() {
 }
 
 // Records a project that was approved outside the system: it lands as "approved" with its money allocated from the fund pools.
-function ApprovedProjectEditor({ onClose, onSaved }) {
+// With `edit` ({ project, lines } from projects/show) it edits that project; the allocation follows the new approved amounts.
+function ApprovedProjectEditor({ edit, onClose, onSaved }) {
   const { meta, units, toast } = useApp();
   const cats = meta.categories.filter(c => +c.is_leaf && +c.active);
   const blank = () => ({ category_id: '', fund_id: '', item_name: '', amount: '' });
-  const [f, setF] = useState({ title: '', code: '', unit_id: '', requested: '', quarters: [], lines: [blank()] });
+  const money = n => (+n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const [f, setF] = useState(() => edit ? {
+    title: edit.project.title, code: edit.project.code, unit_id: edit.project.unit_id, requested: money(edit.project.requested), quarters: edit.project.quarters,
+    lines: edit.lines.length ? edit.lines.map(l => ({ category_id: l.expense_category_id, fund_id: +l.fund_source_id, item_name: l.item_name, amount: money(l.amount_num) })) : [blank()],
+  } : { title: '', code: '', unit_id: '', requested: '', quarters: [], lines: [blank()] });
   const [override, setOverride] = useState('');
   const [err, setErr] = useState(null);
   const [busy, run] = useBusy();
@@ -239,29 +247,31 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
   const save = () => run(async () => {
     setErr(null);
     try {
-      const r = await post('projects/create', {
-        title: f.title, code: f.code, unit_id: +f.unit_id, quarters: f.quarters,
+      const r = await post(edit ? 'projects/update' : 'projects/create', {
+        id: edit ? edit.project.id : undefined, title: f.title, code: f.code, unit_id: +f.unit_id, quarters: f.quarters,
         requested: f.requested === '' ? '' : (parseMoney(f.requested) || 0),
         lines: f.lines.map(l => ({ category_id: +l.category_id, fund_id: +l.fund_id, item_name: l.item_name, amount: parseMoney(l.amount) || 0 })),
         override_reason: override || undefined,
       });
-      toast('เพิ่มโครงการ ' + r.code + ' แล้ว', 'ok');
+      toast(edit ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มโครงการ ' + r.code + ' แล้ว', 'ok');
       onSaved(r);
     } catch (e) { setErr(e); }
   });
   return (
-    <Modal wide title="เพิ่มโครงการที่ได้รับอนุมัติแล้ว" onClose={onClose} footer={<Fragment>
+    <Modal wide title={edit ? 'แก้ไขโครงการที่อนุมัติแล้ว' : 'เพิ่มโครงการที่ได้รับอนุมัติแล้ว'} onClose={onClose} footer={<Fragment>
       <span className="sm muted" style={{ marginRight: 'auto' }}>ขอ <b style={{ color: 'var(--text)' }}>{fmt(requested)}</b> · อนุมัติ <b style={{ color: 'var(--text)' }}>{fmt(total)}</b> บาท</span>
       <button className="btn" onClick={onClose}>ยกเลิก</button>
       <button className="btn primary" onClick={save} disabled={busy}>บันทึกและจัดสรรเงิน</button>
     </Fragment>}>
-      <Alert tone="blue">โครงการจะมีสถานะ "อนุมัติในแผน" ทันที และระบบจะจัดสรรเงินจากกองเงินตามแหล่งเงินของแต่ละรายการ</Alert>
+      <Alert tone="blue">{edit
+        ? 'เมื่อบันทึก ระบบจะปรับยอดจัดสรรของแต่ละแหล่งเงินให้ตรงกับยอดอนุมัติใหม่ (เพิ่ม = จัดสรรเพิ่ม, ลด = คืนกอง) ยอดที่จ่ายไปแล้วลดไม่ได้'
+        : 'โครงการจะมีสถานะ "อนุมัติในแผน" ทันที และระบบจะจัดสรรเงินจากกองเงินตามแหล่งเงินของแต่ละรายการ'}</Alert>
       <Field label="ชื่อโครงการ" required><input className="input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
       <div className="form-grid">
         <Field label="หน่วยงาน" required>
           <UnitPicker value={f.unit_id} onChange={v => setF({ ...f, unit_id: v })} placeholder="พิมพ์เพื่อค้นหาหน่วยงาน" />
         </Field>
-        <Field label="รหัสโครงการ" hint="เว้นว่างให้ระบบออกเลขให้"><input className="input mono" value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></Field>
+        <Field label="รหัสโครงการ" hint={edit ? 'เว้นว่าง = ใช้รหัสเดิม' : 'เว้นว่างให้ระบบออกเลขให้'}><input className="input mono" value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></Field>
       </div>
       <div className="form-grid">
         <Field label="ยอดเงินที่ขออนุมัติ (บาท)" hint="เว้นว่าง = เท่ากับยอดที่อนุมัติ"><MoneyInput value={f.requested} onChange={v => setF({ ...f, requested: v })} placeholder={fmt(total)} /></Field>

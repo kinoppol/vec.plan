@@ -8,6 +8,9 @@ const PROJECT_STATUS = [
     'transferred_out' => 'โอนออกทั้งหมด',
 ];
 
+// Statuses an admin/planner may still edit as an approved project.
+const EDITABLE_APPROVED = ['approved', 'in_progress', 'awaiting_report'];
+
 function project_rows(array $user, int $fyId, array $q): array
 {
     $where = ['p.fiscal_year_id = ?'];
@@ -60,6 +63,65 @@ function project_rows(array $user, int $fyId, array $q): array
     }, $rows);
 }
 
+
+/** Validates the add/edit form for an approved project (admin/planner). $selfId = the project being edited. */
+function approved_project_input(array $b, ?int $selfId = null): array
+{
+    $title = trim((string)($b['title'] ?? ''));
+    if ($title === '') fail('กรุณาระบุชื่อโครงการ');
+    $unitId = (int)($b['unit_id'] ?? 0);
+    $st = db()->prepare('SELECT id FROM org_units WHERE id = ? AND institution_id = ?');
+    $st->execute([$unitId, current_institution_id()]);
+    if (!$st->fetch()) fail('กรุณาเลือกหน่วยงาน');
+    $code = trim((string)($b['code'] ?? ''));
+    if ($code !== '') {
+        $st = db()->prepare('SELECT 1 FROM projects WHERE code = ? AND id <> ?');
+        $st->execute([$code, $selfId ?? 0]);
+        if ($st->fetch()) fail('รหัสโครงการ ' . $code . ' มีอยู่แล้ว');
+    }
+    $quarters = array_values(array_unique(array_filter(array_map('intval', (array)($b['quarters'] ?? [])), fn($q) => $q >= 1 && $q <= 4)));
+    sort($quarters);
+    $lines = [];
+    foreach ((array)($b['lines'] ?? []) as $i => $l) {
+        $amt = to_cents($l['amount'] ?? 0);
+        if ($amt <= 0) fail('รายการที่ ' . ($i + 1) . ': จำนวนเงินต้องมากกว่า 0');
+        $catId = (int)($l['category_id'] ?? 0);
+        $st = db()->prepare('SELECT name FROM expense_categories c WHERE id = ? AND institution_id = ? AND NOT EXISTS (SELECT 1 FROM expense_categories k WHERE k.parent_id = c.id)');
+        $st->execute([$catId, current_institution_id()]);
+        if (($catName = $st->fetchColumn()) === false) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกหมวดรายจ่าย');
+        $fundId = (int)($l['fund_id'] ?? 0);
+        if (!$fundId) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกแหล่งเงิน');
+        $item = trim((string)($l['item_name'] ?? '')) ?: (string)$catName;
+        $lines[] = ['category_id' => $catId, 'fund_id' => $fundId, 'item_name' => $item, 'amount' => $amt];
+    }
+    if (!$lines) fail('ต้องมีรายการงบประมาณอย่างน้อย 1 รายการ');
+    $total = array_sum(array_column($lines, 'amount'));
+    // Requested (ยอดขอ) may differ from the approved total; blank means "same as approved".
+    $requested = ($b['requested'] ?? '') === '' || $b['requested'] === null ? $total : to_cents($b['requested']);
+    if ($requested < 0) fail('ยอดเงินที่ขออนุมัติต้องไม่ติดลบ');
+    $override = trim((string)($b['override_reason'] ?? ''));
+    return compact('title', 'unitId', 'code', 'quarters', 'lines', 'total', 'requested', 'override');
+}
+
+/** Moves a project's per-fund allocation to $targets [fund_id => satang]: allocate the increase, return the decrease to the pool. */
+function sync_project_allocation(array $fy, int $pid, array $targets, int $userId, string $override): void
+{
+    $current = array_map(fn($b) => $b['allocated'], Ledger::projectBalances((int)$fy['id'], [$pid])[$pid] ?? []);
+    $date = max($fy['starts_on'], min(today(), $fy['ends_on']));
+    $reason = $override !== '' ? $override : 'บันทึกโครงการที่ได้รับอนุมัติแล้ว (ยอมให้กองเงินติดลบ)';
+    foreach (array_keys($targets + $current) as $fid) {
+        $delta = ($targets[$fid] ?? 0) - ($current[$fid] ?? 0);
+        if ($delta > 0) {
+            Ledger::post(['fiscal_year_id' => (int)$fy['id'], 'entry_type' => 'allocate', 'fund_source_id' => $fid, 'project_id' => $pid,
+                'amount' => $delta, 'entry_date' => $date, 'reference_no' => 'โครงการที่ได้รับอนุมัติแล้ว', 'source_type' => 'manual_project',
+                'note' => 'จัดสรรตามโครงการที่ได้รับอนุมัติ (เพิ่ม/แก้ไขโดยผู้ดูแล)'], $userId, ['reason' => $reason, 'system' => true]);
+        } elseif ($delta < 0) {
+            Ledger::post(['fiscal_year_id' => (int)$fy['id'], 'entry_type' => 'return', 'fund_source_id' => $fid, 'project_id' => $pid,
+                'amount' => -$delta, 'entry_date' => $date, 'reference_no' => 'แก้ไขโครงการที่ได้รับอนุมัติ', 'source_type' => 'manual_project',
+                'note' => 'คืนกองจากการแก้ไขยอดอนุมัติ (โดยผู้ดูแล)'], $userId);
+        }
+    }
+}
 
 return [
     'GET index' => function () {
@@ -120,11 +182,12 @@ return [
                 'status_label' => PROJECT_STATUS[$p['status']] ?? $p['status'], 'health' => $p['health'], 'unit_name' => $p['unit_name'],
                 'quarters' => $p['planned_quarters'] ? array_map('intval', explode(',', $p['planned_quarters'])) : [],
                 'requested' => cents_num(to_cents($p['requested_total'])), 'source' => $p['source'], 'created_by_name' => $p['created_by_name'],
-                'approved_at' => $p['approved_at'], 'created_at' => $p['created_at'],
+                'approved_at' => $p['approved_at'], 'created_at' => $p['created_at'], 'unit_id' => (int)$p['org_unit_id'],
             ],
             'lines' => $lines,
             'balances' => $balances,
             'can_view_ledger' => has_role(Access::LEDGER_VIEWERS, $fyId),
+            'can_edit' => in_array($p['status'], EDITABLE_APPROVED, true) && has_role(['admin', 'planner'], $fyId),
             'history' => $st->fetchAll(),
         ];
     },
@@ -136,39 +199,8 @@ return [
         $fy = fiscal_year($fyId);
         if ($fy['status'] === 'closed') fail('ปีงบประมาณนี้ปิดแล้ว');
         $b = body();
-        $title = trim((string)($b['title'] ?? ''));
-        if ($title === '') fail('กรุณาระบุชื่อโครงการ');
-        $unitId = (int)($b['unit_id'] ?? 0);
-        $st = db()->prepare('SELECT id FROM org_units WHERE id = ? AND institution_id = ?');
-        $st->execute([$unitId, current_institution_id()]);
-        if (!$st->fetch()) fail('กรุณาเลือกหน่วยงาน');
-        $code = trim((string)($b['code'] ?? ''));
-        if ($code !== '') {
-            $st = db()->prepare('SELECT 1 FROM projects WHERE code = ?');
-            $st->execute([$code]);
-            if ($st->fetch()) fail('รหัสโครงการ ' . $code . ' มีอยู่แล้ว');
-        }
-        $quarters = array_values(array_unique(array_filter(array_map('intval', (array)($b['quarters'] ?? [])), fn($q) => $q >= 1 && $q <= 4)));
-        sort($quarters);
-        $lines = [];
-        foreach ((array)($b['lines'] ?? []) as $i => $l) {
-            $amt = to_cents($l['amount'] ?? 0);
-            if ($amt <= 0) fail('รายการที่ ' . ($i + 1) . ': จำนวนเงินต้องมากกว่า 0');
-            $catId = (int)($l['category_id'] ?? 0);
-            $st = db()->prepare('SELECT name FROM expense_categories c WHERE id = ? AND institution_id = ? AND NOT EXISTS (SELECT 1 FROM expense_categories k WHERE k.parent_id = c.id)');
-            $st->execute([$catId, current_institution_id()]);
-            if (($catName = $st->fetchColumn()) === false) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกหมวดรายจ่าย');
-            $fundId = (int)($l['fund_id'] ?? 0);
-            if (!$fundId) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกแหล่งเงิน');
-            $item = trim((string)($l['item_name'] ?? '')) ?: (string)$catName;
-            $lines[] = ['category_id' => $catId, 'fund_id' => $fundId, 'item_name' => $item, 'amount' => $amt];
-        }
-        if (!$lines) fail('ต้องมีรายการงบประมาณอย่างน้อย 1 รายการ');
-        $total = array_sum(array_column($lines, 'amount'));
-        // Requested (ยอดขอ) may differ from the approved total; blank means "same as approved".
-        $requested = ($b['requested'] ?? '') === '' || $b['requested'] === null ? $total : to_cents($b['requested']);
-        if ($requested < 0) fail('ยอดเงินที่ขออนุมัติต้องไม่ติดลบ');
-        $override = trim((string)($b['override_reason'] ?? ''));
+        ['title' => $title, 'unitId' => $unitId, 'code' => $code, 'quarters' => $quarters, 'lines' => $lines, 'total' => $total,
+            'requested' => $requested, 'override' => $override] = approved_project_input($b);
 
         $res = tx(function (PDO $pdo) use ($fy, $fyId, $u, $title, $unitId, $code, $quarters, $lines, $total, $requested, $override) {
             $code = $code !== '' ? $code : next_number('P', (int)$fy['year_be'], 3);
@@ -183,15 +215,45 @@ return [
                 $insL->execute([$pid, $l['category_id'], $l['fund_id'], $l['item_name'], cents_str($l['amount']), cents_str($l['amount'])]);
                 $byFund[$l['fund_id']] = ($byFund[$l['fund_id']] ?? 0) + $l['amount'];
             }
-            foreach ($byFund as $fid => $amt) {
-                Ledger::post(['fiscal_year_id' => $fyId, 'entry_type' => 'allocate', 'fund_source_id' => $fid, 'project_id' => $pid,
-                    'amount' => $amt, 'entry_date' => max($fy['starts_on'], min(today(), $fy['ends_on'])),
-                    'reference_no' => 'โครงการที่ได้รับอนุมัติแล้ว', 'source_type' => 'manual_project', 'note' => 'จัดสรรตามโครงการที่ได้รับอนุมัติ (เพิ่มโดยผู้ดูแล)'],
-                    (int)$u['id'], ['reason' => $override !== '' ? $override : 'บันทึกโครงการที่ได้รับอนุมัติแล้ว (ยอมให้กองเงินติดลบ)', 'system' => true]);
-            }
+            sync_project_allocation($fy, $pid, $byFund, (int)$u['id'], $override);
             audit('project.create_approved', 'project', $pid, null, ['code' => $code, 'title' => $title, 'requested' => cents_str($requested), 'total' => cents_str($total)]);
             return ['id' => $pid, 'code' => $code];
         });
         return ['ok' => true] + $res;
+    },
+
+    // Admin/planner edits an approved project: details, budget lines, and the allocation follows the new approved amounts.
+    'POST update' => function () {
+        $fyId = request_fy();
+        $u = require_role(['admin', 'planner'], $fyId);
+        $fy = fiscal_year($fyId);
+        if ($fy['status'] === 'closed') fail('ปีงบประมาณนี้ปิดแล้ว');
+        $b = body();
+        $id = (int)($b['id'] ?? 0);
+        $st = db()->prepare('SELECT * FROM projects WHERE id = ? AND fiscal_year_id = ?');
+        $st->execute([$id, $fyId]);
+        $before = $st->fetch();
+        if (!$before) fail('ไม่พบโครงการ', 404);
+        if (!in_array($before['status'], EDITABLE_APPROVED, true)) fail('แก้ไขได้เฉพาะโครงการที่อนุมัติแล้ว');
+        ['title' => $title, 'unitId' => $unitId, 'code' => $code, 'quarters' => $quarters, 'lines' => $lines, 'total' => $total,
+            'requested' => $requested, 'override' => $override] = approved_project_input($b, $id);
+        tx(function (PDO $pdo) use ($fy, $id, $u, $before, $title, $unitId, $code, $quarters, $lines, $total, $requested, $override) {
+            $code = $code !== '' ? $code : $before['code'];
+            $pdo->prepare('UPDATE projects SET code = ?, title = ?, org_unit_id = ?, requested_total = ?, minimum_viable = ?, planned_quarters = ? WHERE id = ?')
+                ->execute([$code, $title, $unitId, cents_str($requested), cents_str($total), $quarters ? implode(',', $quarters) : null, $id]);
+            $pdo->prepare('DELETE FROM budget_lines WHERE project_id = ?')->execute([$id]);
+            $insL = $pdo->prepare('INSERT INTO budget_lines (project_id, expense_category_id, fund_source_id, item_name, quantity, unit, unit_price, amount)
+                VALUES (?, ?, ?, ?, 1, NULL, ?, ?)');
+            $byFund = [];
+            foreach ($lines as $l) {
+                $insL->execute([$id, $l['category_id'], $l['fund_id'], $l['item_name'], cents_str($l['amount']), cents_str($l['amount'])]);
+                $byFund[$l['fund_id']] = ($byFund[$l['fund_id']] ?? 0) + $l['amount'];
+            }
+            sync_project_allocation($fy, $id, $byFund, (int)$u['id'], $override);
+            audit('project.update_approved', 'project', $id,
+                ['code' => $before['code'], 'title' => $before['title'], 'org_unit_id' => $before['org_unit_id'], 'requested' => $before['requested_total']],
+                ['code' => $code, 'title' => $title, 'org_unit_id' => $unitId, 'requested' => cents_str($requested), 'total' => cents_str($total)]);
+        });
+        return ['ok' => true, 'id' => $id];
     },
 ];
