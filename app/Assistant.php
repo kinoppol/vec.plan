@@ -23,7 +23,7 @@ class Assistant
 
     /** Pages the open_page tool may send the browser to (hash routes of the SPA). */
     public const PAGES = [
-        'dashboard' => 'หน้าหลัก', 'projects' => 'โครงการทั้งหมด', 'project' => 'รายละเอียดโครงการ (ต้องระบุ id)', 'funds' => 'ภาพรวมกองเงิน',
+        'dashboard' => 'หน้าหลัก', 'overview' => 'ภาพรวมโครงการ (กราฟติดตามการดำเนินและเบิกจ่าย)', 'projects' => 'โครงการทั้งหมด', 'project' => 'รายละเอียดโครงการ (ต้องระบุ id)', 'funds' => 'ภาพรวมกองเงิน',
         'estimates' => 'ประมาณการรายรับ', 'receive' => 'บันทึกรับเงิน', 'fund-entry' => 'ยกมา / ปรับจัดสรร / กันเงิน', 'ledger' => 'สมุดบัญชี',
         'import' => 'นำเข้าแผนที่อนุมัติ', 'settings' => 'ตั้งค่า', 'users' => 'ผู้ใช้และบทบาท', 'audit' => 'บันทึกการใช้งาน', 'backups' => 'สำรองข้อมูล',
     ];

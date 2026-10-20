@@ -31,7 +31,7 @@ $boot = [
     'version' => APP_VERSION,
 ];
 // Script order matters: each file registers components on window for the next ones.
-$scripts = ['core', 'layout', 'dashboard', 'funds', 'ledger', 'projects', 'import', 'settings', 'admin', 'assistant', 'app'];
+$scripts = ['core', 'layout', 'dashboard', 'overview', 'funds', 'ledger', 'projects', 'import', 'settings', 'admin', 'assistant', 'app'];
 $v = function (string $file): string {
     return (string)@filemtime(__DIR__ . '/' . $file);
 };

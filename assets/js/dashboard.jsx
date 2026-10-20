@@ -6,6 +6,7 @@ function Dashboard() {
   const fy = meta.fiscal_year;
   const head = (
     <PageHead crumb="หน้าหลัก" title={data && data.mode === 'funds' ? 'แดชบอร์ดงานวางแผนและงบประมาณ' : 'หน้าหลัก'}>
+      {meta.permissions.view_projects && <button className="btn" onClick={() => navigate('overview')}>ภาพรวมโครงการ</button>}
       {meta.permissions.view_funds && <button className="btn" onClick={() => navigate('funds')}>ภาพรวมกองเงิน</button>}
       {meta.permissions.import && <button className="btn primary" onClick={() => navigate('import')}>นำเข้าแผนที่อนุมัติ</button>}
     </PageHead>

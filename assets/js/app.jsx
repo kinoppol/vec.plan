@@ -2,6 +2,7 @@
 
 const PAGES = {
   dashboard: () => <Dashboard />,
+  overview: () => <OverviewPage />,
   projects: () => <ProjectsPage />,
   project: () => <ProjectPage />,
   import: () => <ImportPage />,

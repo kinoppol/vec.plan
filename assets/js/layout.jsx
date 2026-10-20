@@ -103,6 +103,7 @@ function Login({ onDone }) {
 // phase: build phase (spec §14) in which the page arrives; items of later phases are shown dimmed.
 const NAV = [
   { id: 'dashboard', label: 'หน้าหลัก', icon: 'home' },
+  { id: 'overview', label: 'ภาพรวมโครงการ', icon: 'bar', perm: 'view_projects' },
   { id: 'inbox', label: 'งานของฉัน', icon: 'inbox', phase: 2, perm: 'view_projects' },
   { group: 'โครงการ' },
   { id: 'projects', label: 'โครงการทั้งหมด', icon: 'list', perm: 'view_projects' },

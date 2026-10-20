@@ -350,6 +350,37 @@ test('Access: unit-scoped roles see only their unit subtree', function () use ($
     eq(0, (int)$st->fetchColumn(), 'no projects of other units');
 });
 
+test('overview: chart totals agree with the project list and the ledger', function () use ($pdo, $fyId, $planner, $post, $fund, $mkProject, $catId, $mkUser) {
+    $f = $fund('INC-FEE');
+    $p = $mkProject('T-OV1');
+    $pdo->prepare("UPDATE projects SET planned_quarters = '1', status = 'in_progress' WHERE id = ?")->execute([$p]);
+    $post(['entry_type' => 'allocate', 'fund_source_id' => $f, 'project_id' => $p, 'amount' => to_cents('12000')], $planner);
+    $post(['entry_type' => 'spend', 'fund_source_id' => $f, 'project_id' => $p, 'amount' => to_cents('1000'), 'expense_category_id' => $catId], $planner);
+    $s = $post(['entry_type' => 'spend', 'fund_source_id' => $f, 'project_id' => $p, 'amount' => to_cents('500'), 'expense_category_id' => $catId], $planner);
+    Ledger::reverse((int)$s['id'], 'ผิด', $planner);
+
+    as_user($planner);
+    $_GET['fy'] = $fyId;
+    $o = api_call('GET', 'overview/index');
+    $rows = api_call('GET', 'projects/index')['rows'];
+    eq(count($rows), $o['totals']['projects'], 'project count');
+    ok(abs(array_sum(array_column($rows, 'allocated')) - $o['totals']['allocated']) < 0.005, 'allocated total');
+    ok(abs(array_sum(array_column($rows, 'spent')) - $o['totals']['spent']) < 0.005, 'spent total');
+    ok(abs(array_sum(array_column($o['curve'], 'spent')) - $o['totals']['spent']) < 0.005, 'monthly spending sums to spent (reversal netted)');
+    ok(abs(array_sum(array_column($o['categories'], 'amount')) - $o['totals']['spent']) < 0.005, 'categories sum to spent');
+    eq($o['totals']['projects'], array_sum(array_column($o['stages'], 'count')), 'every project in one stage');
+    eq($o['totals']['active'], array_sum($o['track']), 'every active project has a tracking state');
+    $active = array_filter($rows, fn($r) => $r['allocated'] > 0 && !in_array($r['status'], OVERVIEW_INACTIVE, true));
+    ok(abs(end($o['curve'])['plan'] - array_sum(array_column($active, 'allocated'))) < 0.05, 'plan ends at the allocated total');
+    $q1 = $o['quarters'][0];
+    ok($q1['planned'] >= 12000 - 0.005, 'Q1 carries the quarter-1 project');
+
+    $nobody = $mkUser('t_nobody', []);
+    as_user($nobody);
+    throws(fn() => api_call('GET', 'overview/index'), 'ไม่มีสิทธิ์');
+    unset($_GET['fy']);
+});
+
 // ------------------------------------------------------------------ AI assistant
 echo "AI assistant\n";
 // Fake provider: answers with the queued assistant messages in order and records each request payload.
