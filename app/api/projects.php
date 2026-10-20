@@ -128,4 +128,67 @@ return [
             'history' => $st->fetchAll(),
         ];
     },
+
+    // Admin/planner records a project that was already approved outside the system (e.g. approved on paper mid-year).
+    'POST create' => function () {
+        $fyId = request_fy();
+        $u = require_role(['admin', 'planner'], $fyId);
+        $fy = fiscal_year($fyId);
+        if ($fy['status'] === 'closed') fail('ปีงบประมาณนี้ปิดแล้ว');
+        $b = body();
+        $title = trim((string)($b['title'] ?? ''));
+        if ($title === '') fail('กรุณาระบุชื่อโครงการ');
+        $unitId = (int)($b['unit_id'] ?? 0);
+        $st = db()->prepare('SELECT id FROM org_units WHERE id = ? AND institution_id = ?');
+        $st->execute([$unitId, current_institution_id()]);
+        if (!$st->fetch()) fail('กรุณาเลือกหน่วยงาน');
+        $code = trim((string)($b['code'] ?? ''));
+        if ($code !== '') {
+            $st = db()->prepare('SELECT 1 FROM projects WHERE code = ?');
+            $st->execute([$code]);
+            if ($st->fetch()) fail('รหัสโครงการ ' . $code . ' มีอยู่แล้ว');
+        }
+        $quarters = array_values(array_unique(array_filter(array_map('intval', (array)($b['quarters'] ?? [])), fn($q) => $q >= 1 && $q <= 4)));
+        sort($quarters);
+        $lines = [];
+        foreach ((array)($b['lines'] ?? []) as $i => $l) {
+            $amt = to_cents($l['amount'] ?? 0);
+            if ($amt <= 0) fail('รายการที่ ' . ($i + 1) . ': จำนวนเงินต้องมากกว่า 0');
+            $catId = (int)($l['category_id'] ?? 0);
+            $st = db()->prepare('SELECT name FROM expense_categories c WHERE id = ? AND institution_id = ? AND NOT EXISTS (SELECT 1 FROM expense_categories k WHERE k.parent_id = c.id)');
+            $st->execute([$catId, current_institution_id()]);
+            if (($catName = $st->fetchColumn()) === false) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกหมวดรายจ่าย');
+            $fundId = (int)($l['fund_id'] ?? 0);
+            if (!$fundId) fail('รายการที่ ' . ($i + 1) . ': กรุณาเลือกแหล่งเงิน');
+            $item = trim((string)($l['item_name'] ?? '')) ?: (string)$catName;
+            $lines[] = ['category_id' => $catId, 'fund_id' => $fundId, 'item_name' => $item, 'amount' => $amt];
+        }
+        if (!$lines) fail('ต้องมีรายการงบประมาณอย่างน้อย 1 รายการ');
+        $total = array_sum(array_column($lines, 'amount'));
+        $override = trim((string)($b['override_reason'] ?? ''));
+
+        $res = tx(function (PDO $pdo) use ($fy, $fyId, $u, $title, $unitId, $code, $quarters, $lines, $total, $override) {
+            $code = $code !== '' ? $code : next_number('P', (int)$fy['year_be'], 3);
+            $pdo->prepare('INSERT INTO projects (fiscal_year_id, code, title, org_unit_id, created_by, requested_total, minimum_viable,
+                planned_quarters, status, source, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'approved\', \'manual\', NOW())')
+                ->execute([$fyId, $code, $title, $unitId, (int)$u['id'], cents_str($total), cents_str($total), $quarters ? implode(',', $quarters) : null]);
+            $pid = (int)$pdo->lastInsertId();
+            $insL = $pdo->prepare('INSERT INTO budget_lines (project_id, expense_category_id, fund_source_id, item_name, quantity, unit, unit_price, amount)
+                VALUES (?, ?, ?, ?, 1, NULL, ?, ?)');
+            $byFund = [];
+            foreach ($lines as $l) {
+                $insL->execute([$pid, $l['category_id'], $l['fund_id'], $l['item_name'], cents_str($l['amount']), cents_str($l['amount'])]);
+                $byFund[$l['fund_id']] = ($byFund[$l['fund_id']] ?? 0) + $l['amount'];
+            }
+            foreach ($byFund as $fid => $amt) {
+                Ledger::post(['fiscal_year_id' => $fyId, 'entry_type' => 'allocate', 'fund_source_id' => $fid, 'project_id' => $pid,
+                    'amount' => $amt, 'entry_date' => max($fy['starts_on'], min(today(), $fy['ends_on'])),
+                    'reference_no' => 'โครงการที่ได้รับอนุมัติแล้ว', 'source_type' => 'manual_project', 'note' => 'จัดสรรตามโครงการที่ได้รับอนุมัติ (เพิ่มโดยผู้ดูแล)'],
+                    (int)$u['id'], $override !== '' ? ['reason' => $override] : null);
+            }
+            audit('project.create_approved', 'project', $pid, null, ['code' => $code, 'title' => $title, 'total' => cents_str($total)]);
+            return ['id' => $pid, 'code' => $code];
+        });
+        return ['ok' => true] + $res;
+    },
 ];

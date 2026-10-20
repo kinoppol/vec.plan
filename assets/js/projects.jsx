@@ -15,6 +15,7 @@ function ProjectsPage() {
   const [f, setF] = useState({ q: params.q || '', status: params.status || '', fund: params.fund || '', quarter: '', unit: params.unit || '' });
   const [qLive, setQLive] = useState(f.q);
   const [views, setViews] = useState(loadViews());
+  const [adding, setAdding] = useState(false);
   useEffect(() => { const t = setTimeout(() => setF(x => ({ ...x, q: qLive })), 300); return () => clearTimeout(t); }, [qLive]);
   const { data, error, loading, reload } = useApi('projects/index', f);
   if (!meta.permissions.view_projects) return <Forbidden />;
@@ -35,8 +36,10 @@ function ProjectsPage() {
     <div className="stack">
       <PageHead crumb="โครงการ" title="โครงการทั้งหมด">
         <button className="btn" onClick={() => download('projects/export', f)}><Icon name="download" size={16} />ส่งออก Excel</button>
+        {meta.permissions.create_project && <button className="btn" onClick={() => setAdding(true)}><Icon name="filePlus" size={16} />เพิ่มโครงการที่อนุมัติแล้ว</button>}
         {meta.permissions.import && <button className="btn primary" onClick={() => navigate('import')}>นำเข้าแผนที่อนุมัติ</button>}
       </PageHead>
+      {adding && <ApprovedProjectEditor onClose={() => setAdding(false)} onSaved={r => { setAdding(false); navigate('project', { id: r.id }); }} />}
       <div className="card has-mobile-cards">
         <div className="row wrap" style={{ gap: 6, padding: '12px 16px', borderBottom: '1px solid var(--line-soft)' }}>
           <span className="sm muted" style={{ marginRight: 4 }}>มุมมองที่บันทึกไว้</span>
@@ -134,7 +137,7 @@ function ProjectPage() {
         <h1 className="title" style={{ margin: 0 }}>{p.title}</h1>
         <div className="sm muted row wrap" style={{ gap: '6px 16px' }}>
           <span>{p.unit_name}</span><span>{quarterText(p.quarters)}</span>
-          <span>ที่มา: {p.source === 'import' ? 'นำเข้าแผนที่อนุมัติ' : p.source === 'demo' ? 'ข้อมูลตัวอย่าง' : 'เสนอผ่านระบบ'}</span>
+          <span>ที่มา: {p.source === 'import' ? 'นำเข้าแผนที่อนุมัติ' : p.source === 'demo' ? 'ข้อมูลตัวอย่าง' : p.source === 'manual' ? 'เพิ่มโดยผู้ดูแล (อนุมัติแล้ว)' : 'เสนอผ่านระบบ'}</span>
           {p.approved_at && <span>อนุมัติเมื่อ {thDate(p.approved_at)}</span>}
         </div>
         <div style={{ borderTop: '1px solid var(--line-soft)', paddingTop: 16 }} className="stack">
@@ -218,6 +221,74 @@ function ProjectPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Records a project that was approved outside the system: it lands as "approved" with its money allocated from the fund pools.
+function ApprovedProjectEditor({ onClose, onSaved }) {
+  const { meta, units, toast } = useApp();
+  const cats = meta.categories.filter(c => +c.is_leaf && +c.active);
+  const blank = () => ({ category_id: '', fund_id: '', item_name: '', amount: '' });
+  const [f, setF] = useState({ title: '', code: '', unit_id: '', quarters: [], lines: [blank()] });
+  const [override, setOverride] = useState('');
+  const [err, setErr] = useState(null);
+  const [busy, run] = useBusy();
+  const setLine = (i, patch) => setF({ ...f, lines: f.lines.map((l, j) => j === i ? { ...l, ...patch } : l) });
+  const total = f.lines.reduce((a, l) => a + (parseMoney(l.amount) || 0), 0);
+  const save = () => run(async () => {
+    setErr(null);
+    try {
+      const r = await post('projects/create', {
+        title: f.title, code: f.code, unit_id: +f.unit_id, quarters: f.quarters,
+        lines: f.lines.map(l => ({ category_id: +l.category_id, fund_id: +l.fund_id, item_name: l.item_name, amount: parseMoney(l.amount) || 0 })),
+        override_reason: override || undefined,
+      });
+      toast('เพิ่มโครงการ ' + r.code + ' แล้ว', 'ok');
+      onSaved(r);
+    } catch (e) { setErr(e); }
+  });
+  const canOverride = err && err.data && err.data.overridable && meta.permissions.override;
+  return (
+    <Modal wide title="เพิ่มโครงการที่ได้รับอนุมัติแล้ว" onClose={onClose} footer={<Fragment>
+      <span className="sm muted" style={{ marginRight: 'auto' }}>รวม <b style={{ color: 'var(--text)' }}>{fmt(total)}</b> บาท</span>
+      <button className="btn" onClick={onClose}>ยกเลิก</button>
+      <button className="btn primary" onClick={save} disabled={busy}>บันทึกและจัดสรรเงิน</button>
+    </Fragment>}>
+      <Alert tone="blue">โครงการจะมีสถานะ "อนุมัติในแผน" ทันที และระบบจะจัดสรรเงินจากกองเงินตามแหล่งเงินของแต่ละรายการ</Alert>
+      <Field label="ชื่อโครงการ" required><input className="input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
+      <div className="form-grid">
+        <Field label="หน่วยงาน" required>
+          <select className="select" value={f.unit_id} onChange={e => setF({ ...f, unit_id: e.target.value })}>
+            <option value="">เลือกหน่วยงาน</option>
+            {units.flat.map(u => <option key={u.id} value={u.id}>{'  '.repeat(u.depth)}{u.name}</option>)}
+          </select>
+        </Field>
+        <Field label="รหัสโครงการ" hint="เว้นว่างให้ระบบออกเลขให้"><input className="input mono" value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></Field>
+      </div>
+      <Field label="ไตรมาสที่วางแผน">
+        <div className="row wrap" style={{ gap: 12 }}>{[1, 2, 3, 4].map(q => (
+          <label key={q} className="check"><input type="checkbox" checked={f.quarters.includes(q)}
+            onChange={e => setF({ ...f, quarters: e.target.checked ? [...f.quarters, q] : f.quarters.filter(x => x !== q) })} /> ไตรมาส {q}</label>
+        ))}</div>
+      </Field>
+      <div style={{ fontWeight: 600, marginTop: 4 }}>รายการงบประมาณที่อนุมัติ</div>
+      {f.lines.map((l, i) => (
+        <div key={i} className="row wrap" style={{ gap: 8, alignItems: 'flex-end', paddingBottom: 8, borderBottom: '1px solid var(--line-soft)' }}>
+          <Field label="หมวดรายจ่าย" required style={{ flex: '1 1 160px' }}>
+            <select className="select" value={l.category_id} onChange={e => setLine(i, { category_id: e.target.value })}>
+              <option value="">เลือกหมวด</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          <Field label="แหล่งเงิน" required style={{ flex: '1 1 160px' }}><FundSelect value={l.fund_id} onChange={v => setLine(i, { fund_id: v })} /></Field>
+          <Field label="รายการ" style={{ flex: '2 1 180px' }}><input className="input" value={l.item_name} onChange={e => setLine(i, { item_name: e.target.value })} placeholder="ไม่ระบุ = ใช้ชื่อหมวด" /></Field>
+          <Field label="จำนวน (บาท)" required style={{ flex: '1 1 120px' }}><MoneyInput value={l.amount} onChange={v => setLine(i, { amount: v })} /></Field>
+          {f.lines.length > 1 && <button className="icon-btn plain" title="ลบรายการ" onClick={() => setF({ ...f, lines: f.lines.filter((_, j) => j !== i) })} style={{ marginBottom: 4 }}><Icon name="x" size={16} /></button>}
+        </div>
+      ))}
+      <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => setF({ ...f, lines: [...f.lines, blank()] })}>+ เพิ่มรายการ</button>
+      {err && <Alert tone="red">{err.message}</Alert>}
+      {canOverride && <Field label="เหตุผลยืนยันข้าม BR-22" required hint="ใส่เหตุผลแล้วกดบันทึกอีกครั้ง"><input className="input" value={override} onChange={e => setOverride(e.target.value)} /></Field>}
+    </Modal>
   );
 }
 

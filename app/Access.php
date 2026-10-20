@@ -17,7 +17,7 @@ class Access
 
     public const FUND_VIEWERS = ['planner', 'planning_deputy', 'director', 'finance', 'procurement', 'board_viewer'];
     public const LEDGER_VIEWERS = ['planner', 'planning_deputy', 'director', 'finance', 'procurement'];
-    public const GLOBAL_PROJECT_VIEWERS = ['planner', 'planning_deputy', 'director', 'finance', 'procurement'];
+    public const GLOBAL_PROJECT_VIEWERS = ['planner', 'planning_deputy', 'director', 'finance', 'procurement', 'admin'];
 
     public static function canPost(string $type, int $fyId): bool
     {
@@ -39,6 +39,7 @@ class Access
             'view_projects' => has_role(array_merge(self::GLOBAL_PROJECT_VIEWERS, ['proposer', 'unit_head', 'division_deputy']), $fyId),
             'estimates' => has_role(['planner', 'finance'], $fyId),
             'import' => has_role('planner', $fyId),
+            'create_project' => has_role(['admin', 'planner'], $fyId),
             'settings' => has_role('planner', $fyId),
             'admin' => has_role('admin', $fyId),
             'override' => has_role('planner', $fyId),
