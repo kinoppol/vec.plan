@@ -329,6 +329,51 @@ function ThaiDateInput({ value, onChange, minYear, maxYear, invalid }) {
     </div>
   );
 }
+/** Searchable org-unit picker: type to filter by name or code; parents of matches stay visible for context. */
+function UnitPicker({ value, onChange, placeholder = 'เลือกหน่วยงาน', invalid }) {
+  const { units } = useApp();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [hi, setHi] = useState(0);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = e => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const cur = units.flat.find(u => String(u.id) === String(value));
+  const needle = q.trim().toLowerCase();
+  const list = units.flat.filter(u => u.active !== false && +u.active !== 0 || String(u.id) === String(value))
+    .filter(u => !needle || (u.name + ' ' + (u.code || '')).toLowerCase().includes(needle));
+  const pick = u => { onChange(u.id); setOpen(false); setQ(''); };
+  const key = e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setHi(h => Math.min(h + 1, list.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (open && list[hi]) pick(list[hi]); }
+    else if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); }
+  };
+  return (
+    <div ref={box} style={{ position: 'relative' }}>
+      <input className={'input' + (invalid ? ' err' : '')} value={open ? q : (cur ? cur.name : '')} placeholder={cur ? cur.name : placeholder}
+        onFocus={() => { setOpen(true); setHi(0); }} onClick={() => setOpen(true)} onChange={e => { setQ(e.target.value); setOpen(true); setHi(0); }} onKeyDown={key}
+        role="combobox" aria-expanded={open} aria-autocomplete="list" autoComplete="off" />
+      {open && (
+        <div role="listbox" style={{ position: 'absolute', zIndex: 50, left: 0, right: 0, top: 'calc(100% + 4px)', maxHeight: 280, overflowY: 'auto',
+          background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.18)', padding: 4 }}>
+          {list.map((u, i) => (
+            <div key={u.id} role="option" aria-selected={String(u.id) === String(value)} onMouseDown={e => { e.preventDefault(); pick(u); }} onMouseEnter={() => setHi(i)}
+              style={{ padding: '7px 10px', paddingLeft: 10 + (needle ? 0 : u.depth * 14), borderRadius: 6, cursor: 'pointer', fontSize: 13.5,
+                background: i === hi ? 'var(--track)' : 'transparent', fontWeight: u.kind === 'division' ? 600 : 400 }}>
+              {u.name}{u.code && <span className="xs muted" style={{ marginLeft: 6 }}>{u.code}</span>}
+            </div>
+          ))}
+          {list.length === 0 && <div className="sm muted" style={{ padding: '8px 10px' }}>ไม่พบหน่วยงาน "{q}"</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 function Modal({ title, onClose, children, footer, wide }) {
   useEffect(() => {
     const k = e => { if (e.key === 'Escape') onClose && onClose(); };
@@ -366,6 +411,7 @@ function Pager({ page, per, total, onPage }) {
 }
 
 Object.assign(window, {
+  UnitPicker,
   useState, useEffect, useMemo, useRef, useCallback, createContext, useContext, Fragment, BOOT,
   TH_MONTHS, FISCAL_MONTHS, QUARTERS, fmt, fmtSigned, fmt0, fmtM, pct, thDate, quarterText, initials, parseMoney,
   PROJECT_STATUS, HEALTH, LEDGER_TYPE_TONE, FUND_TYPE_LABEL, PERMIT_RULE_LABEL,

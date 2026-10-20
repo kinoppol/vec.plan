@@ -259,10 +259,7 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
       <Field label="ชื่อโครงการ" required><input className="input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></Field>
       <div className="form-grid">
         <Field label="หน่วยงาน" required>
-          <select className="select" value={f.unit_id} onChange={e => setF({ ...f, unit_id: e.target.value })}>
-            <option value="">เลือกหน่วยงาน</option>
-            {units.flat.map(u => <option key={u.id} value={u.id}>{'  '.repeat(u.depth)}{u.name}</option>)}
-          </select>
+          <UnitPicker value={f.unit_id} onChange={v => setF({ ...f, unit_id: v })} placeholder="พิมพ์เพื่อค้นหาหน่วยงาน" />
         </Field>
         <Field label="รหัสโครงการ" hint="เว้นว่างให้ระบบออกเลขให้"><input className="input mono" value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></Field>
       </div>

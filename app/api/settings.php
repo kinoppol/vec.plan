@@ -219,7 +219,8 @@ return [
     },
 
     'POST unit_save' => function () {
-        settings_user(request_fy());
+        // The institution admin may maintain org units too (e.g. rename a section).
+        require_role(['planner', 'admin'], request_fy());
         $b = body();
         $kind = (string)($b['kind'] ?? '');
         if (!in_array($kind, UNIT_KINDS, true)) fail('ประเภทหน่วยงานไม่ถูกต้อง');

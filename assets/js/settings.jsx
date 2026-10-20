@@ -24,7 +24,7 @@ function SettingsPage() {
   return (
     <div className="stack">
       <PageHead crumb="ตั้งค่า" title="ข้อมูลหลักของระบบ" />
-      {readOnly && <Alert tone="blue">ผู้ดูแลระบบแก้ไขได้เฉพาะชื่อสถานศึกษาและปีงบประมาณปัจจุบัน — ข้อมูลหลักอื่นแก้ไขโดยงานวางแผนและงบประมาณ</Alert>}
+      {readOnly && <Alert tone="blue">ผู้ดูแลระบบแก้ไขได้เฉพาะชื่อสถานศึกษา ปีงบประมาณปัจจุบัน และหน่วยงาน — ข้อมูลหลักอื่นแก้ไขโดยงานวางแผนและงบประมาณ</Alert>}
       <div className="row" style={{ gap: 2, borderBottom: '1px solid var(--chip-line)', overflowX: 'auto' }} role="tablist">
         {SETTINGS_TABS.concat(meta.permissions.admin ? [['rms', 'ข้อมูลผู้ใช้จาก RMS']] : [], meta.permissions.system ? [['login', 'การเข้าสู่ระบบ']] : []).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
@@ -35,7 +35,7 @@ function SettingsPage() {
       {loading && !data && <Skeleton rows={6} />}
       {error && <LoadError error={error} onRetry={reload} />}
       {data && tab === 'general' && <GeneralSettings data={data} readOnly={readOnly} onEdit={setEdit} save={save} />}
-      {data && tab === 'units' && <UnitSettings data={data} readOnly={readOnly} onEdit={setEdit} />}
+      {data && tab === 'units' && <UnitSettings data={data} readOnly={readOnly && !meta.permissions.admin} onEdit={setEdit} />}
       {data && tab === 'funds' && <FundSettings data={data} readOnly={readOnly} onEdit={setEdit} />}
       {data && tab === 'categories' && <CategorySettings data={data} readOnly={readOnly} onEdit={setEdit} />}
       {data && tab === 'alignment' && <AlignmentSettings data={data} readOnly={readOnly} onEdit={setEdit} />}
