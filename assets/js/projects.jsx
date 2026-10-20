@@ -249,7 +249,6 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
       onSaved(r);
     } catch (e) { setErr(e); }
   });
-  const canOverride = err && err.data && err.data.overridable && meta.permissions.override;
   return (
     <Modal wide title="เพิ่มโครงการที่ได้รับอนุมัติแล้ว" onClose={onClose} footer={<Fragment>
       <span className="sm muted" style={{ marginRight: 'auto' }}>ขอ <b style={{ color: 'var(--text)' }}>{fmt(requested)}</b> · อนุมัติ <b style={{ color: 'var(--text)' }}>{fmt(total)}</b> บาท</span>
@@ -293,7 +292,7 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
       ))}
       <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => setF({ ...f, lines: [...f.lines, blank()] })}>+ เพิ่มรายการ</button>
       {err && <Alert tone="red">{err.message}</Alert>}
-      {canOverride && <Field label="เหตุผลยืนยันข้าม BR-22" required hint="ใส่เหตุผลแล้วกดบันทึกอีกครั้ง"><input className="input" value={override} onChange={e => setOverride(e.target.value)} /></Field>}
+      <Field label="หมายเหตุกรณีกองเงินไม่พอ" hint="บันทึกได้แม้กองเงินติดลบ (ข้าม BR-22) — ระบบเก็บเหตุผลนี้ไว้ในสมุดบัญชี"><input className="input" value={override} onChange={e => setOverride(e.target.value)} placeholder="เช่น รอรับเงินงวดถัดไป" /></Field>
     </Modal>
   );
 }

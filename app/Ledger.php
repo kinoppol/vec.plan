@@ -41,7 +41,8 @@ class Ledger
      * Post one entry. $e keys: fiscal_year_id, entry_type, fund_source_id, amount (satang int),
      * entry_date, project_id / from_project_id / to_project_id, reserve_name, from_reserve,
      * expense_category_id, reference_no, reference_date, installment_no, source_type, source_id, note.
-     * $override = ['reason' => string] lets a planner bypass BR-22 for OVERRIDABLE types.
+     * $override = ['reason' => string] lets a planner bypass BR-22 for OVERRIDABLE types;
+     * add 'system' => true when the calling endpoint has already authorised the bypass.
      */
     public static function post(array $e, int $userId, ?array $override = null): array
     {
@@ -309,7 +310,8 @@ class Ledger
         $label = ['fund_pool' => 'กองเงิน (ชั้นจริง)', 'project' => 'ยอดคงเหลือของโครงการ', 'reserve' => 'เงินกันไว้'][$fromKind];
         $reason = trim((string)($override['reason'] ?? ''));
         if ($reason !== '' && in_array($type, self::OVERRIDABLE, true) && $fromKind === 'fund_pool') {
-            if (!has_role('planner', (int)$from['fiscal_year_id'])) fail('เฉพาะงานแผนฯ เท่านั้นที่ยืนยันข้ามการตรวจยอดได้', 403);
+            // 'system' => true: the caller already authorised the bypass (e.g. recording a project approved outside the system).
+            if (empty($override['system']) && !has_role('planner', (int)$from['fiscal_year_id'])) fail('เฉพาะงานแผนฯ เท่านั้นที่ยืนยันข้ามการตรวจยอดได้', 403);
             return $reason;
         }
         fail($label . 'ไม่พอ ขาด ' . fmt_money($short) . ' บาท (BR-22)', 422, [

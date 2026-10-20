@@ -187,7 +187,7 @@ return [
                 Ledger::post(['fiscal_year_id' => $fyId, 'entry_type' => 'allocate', 'fund_source_id' => $fid, 'project_id' => $pid,
                     'amount' => $amt, 'entry_date' => max($fy['starts_on'], min(today(), $fy['ends_on'])),
                     'reference_no' => 'โครงการที่ได้รับอนุมัติแล้ว', 'source_type' => 'manual_project', 'note' => 'จัดสรรตามโครงการที่ได้รับอนุมัติ (เพิ่มโดยผู้ดูแล)'],
-                    (int)$u['id'], $override !== '' ? ['reason' => $override] : null);
+                    (int)$u['id'], ['reason' => $override !== '' ? $override : 'บันทึกโครงการที่ได้รับอนุมัติแล้ว (ยอมให้กองเงินติดลบ)', 'system' => true]);
             }
             audit('project.create_approved', 'project', $pid, null, ['code' => $code, 'title' => $title, 'requested' => cents_str($requested), 'total' => cents_str($total)]);
             return ['id' => $pid, 'code' => $code];
