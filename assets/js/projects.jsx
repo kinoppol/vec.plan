@@ -229,17 +229,19 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
   const { meta, units, toast } = useApp();
   const cats = meta.categories.filter(c => +c.is_leaf && +c.active);
   const blank = () => ({ category_id: '', fund_id: '', item_name: '', amount: '' });
-  const [f, setF] = useState({ title: '', code: '', unit_id: '', quarters: [], lines: [blank()] });
+  const [f, setF] = useState({ title: '', code: '', unit_id: '', requested: '', quarters: [], lines: [blank()] });
   const [override, setOverride] = useState('');
   const [err, setErr] = useState(null);
   const [busy, run] = useBusy();
   const setLine = (i, patch) => setF({ ...f, lines: f.lines.map((l, j) => j === i ? { ...l, ...patch } : l) });
   const total = f.lines.reduce((a, l) => a + (parseMoney(l.amount) || 0), 0);
+  const requested = f.requested === '' ? total : (parseMoney(f.requested) || 0);
   const save = () => run(async () => {
     setErr(null);
     try {
       const r = await post('projects/create', {
         title: f.title, code: f.code, unit_id: +f.unit_id, quarters: f.quarters,
+        requested: f.requested === '' ? '' : (parseMoney(f.requested) || 0),
         lines: f.lines.map(l => ({ category_id: +l.category_id, fund_id: +l.fund_id, item_name: l.item_name, amount: parseMoney(l.amount) || 0 })),
         override_reason: override || undefined,
       });
@@ -250,7 +252,7 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
   const canOverride = err && err.data && err.data.overridable && meta.permissions.override;
   return (
     <Modal wide title="เพิ่มโครงการที่ได้รับอนุมัติแล้ว" onClose={onClose} footer={<Fragment>
-      <span className="sm muted" style={{ marginRight: 'auto' }}>รวม <b style={{ color: 'var(--text)' }}>{fmt(total)}</b> บาท</span>
+      <span className="sm muted" style={{ marginRight: 'auto' }}>ขอ <b style={{ color: 'var(--text)' }}>{fmt(requested)}</b> · อนุมัติ <b style={{ color: 'var(--text)' }}>{fmt(total)}</b> บาท</span>
       <button className="btn" onClick={onClose}>ยกเลิก</button>
       <button className="btn primary" onClick={save} disabled={busy}>บันทึกและจัดสรรเงิน</button>
     </Fragment>}>
@@ -264,6 +266,10 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
           </select>
         </Field>
         <Field label="รหัสโครงการ" hint="เว้นว่างให้ระบบออกเลขให้"><input className="input mono" value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></Field>
+      </div>
+      <div className="form-grid">
+        <Field label="ยอดเงินที่ขออนุมัติ (บาท)" hint="เว้นว่าง = เท่ากับยอดที่อนุมัติ"><MoneyInput value={f.requested} onChange={v => setF({ ...f, requested: v })} placeholder={fmt(total)} /></Field>
+        <Field label="ยอดเงินที่อนุมัติ (บาท)" hint="รวมจากรายการงบประมาณด้านล่าง"><input className="input num" readOnly value={fmt(total)} style={{ fontWeight: 600, background: 'var(--surface-2)' }} /></Field>
       </div>
       <Field label="ไตรมาสที่วางแผน">
         <div className="row wrap" style={{ gap: 12 }}>{[1, 2, 3, 4].map(q => (
@@ -281,7 +287,7 @@ function ApprovedProjectEditor({ onClose, onSaved }) {
           </Field>
           <Field label="แหล่งเงิน" required style={{ flex: '1 1 160px' }}><FundSelect value={l.fund_id} onChange={v => setLine(i, { fund_id: v })} /></Field>
           <Field label="รายการ" style={{ flex: '2 1 180px' }}><input className="input" value={l.item_name} onChange={e => setLine(i, { item_name: e.target.value })} placeholder="ไม่ระบุ = ใช้ชื่อหมวด" /></Field>
-          <Field label="จำนวน (บาท)" required style={{ flex: '1 1 120px' }}><MoneyInput value={l.amount} onChange={v => setLine(i, { amount: v })} /></Field>
+          <Field label="ยอดอนุมัติ (บาท)" required style={{ flex: '1 1 120px' }}><MoneyInput value={l.amount} onChange={v => setLine(i, { amount: v })} /></Field>
           {f.lines.length > 1 && <button className="icon-btn plain" title="ลบรายการ" onClick={() => setF({ ...f, lines: f.lines.filter((_, j) => j !== i) })} style={{ marginBottom: 4 }}><Icon name="x" size={16} /></button>}
         </div>
       ))}

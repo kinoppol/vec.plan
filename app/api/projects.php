@@ -165,13 +165,16 @@ return [
         }
         if (!$lines) fail('ต้องมีรายการงบประมาณอย่างน้อย 1 รายการ');
         $total = array_sum(array_column($lines, 'amount'));
+        // Requested (ยอดขอ) may differ from the approved total; blank means "same as approved".
+        $requested = ($b['requested'] ?? '') === '' || $b['requested'] === null ? $total : to_cents($b['requested']);
+        if ($requested < 0) fail('ยอดเงินที่ขออนุมัติต้องไม่ติดลบ');
         $override = trim((string)($b['override_reason'] ?? ''));
 
-        $res = tx(function (PDO $pdo) use ($fy, $fyId, $u, $title, $unitId, $code, $quarters, $lines, $total, $override) {
+        $res = tx(function (PDO $pdo) use ($fy, $fyId, $u, $title, $unitId, $code, $quarters, $lines, $total, $requested, $override) {
             $code = $code !== '' ? $code : next_number('P', (int)$fy['year_be'], 3);
             $pdo->prepare('INSERT INTO projects (fiscal_year_id, code, title, org_unit_id, created_by, requested_total, minimum_viable,
                 planned_quarters, status, source, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'approved\', \'manual\', NOW())')
-                ->execute([$fyId, $code, $title, $unitId, (int)$u['id'], cents_str($total), cents_str($total), $quarters ? implode(',', $quarters) : null]);
+                ->execute([$fyId, $code, $title, $unitId, (int)$u['id'], cents_str($requested), cents_str($total), $quarters ? implode(',', $quarters) : null]);
             $pid = (int)$pdo->lastInsertId();
             $insL = $pdo->prepare('INSERT INTO budget_lines (project_id, expense_category_id, fund_source_id, item_name, quantity, unit, unit_price, amount)
                 VALUES (?, ?, ?, ?, 1, NULL, ?, ?)');
@@ -186,7 +189,7 @@ return [
                     'reference_no' => 'โครงการที่ได้รับอนุมัติแล้ว', 'source_type' => 'manual_project', 'note' => 'จัดสรรตามโครงการที่ได้รับอนุมัติ (เพิ่มโดยผู้ดูแล)'],
                     (int)$u['id'], $override !== '' ? ['reason' => $override] : null);
             }
-            audit('project.create_approved', 'project', $pid, null, ['code' => $code, 'title' => $title, 'total' => cents_str($total)]);
+            audit('project.create_approved', 'project', $pid, null, ['code' => $code, 'title' => $title, 'requested' => cents_str($requested), 'total' => cents_str($total)]);
             return ['id' => $pid, 'code' => $code];
         });
         return ['ok' => true] + $res;
